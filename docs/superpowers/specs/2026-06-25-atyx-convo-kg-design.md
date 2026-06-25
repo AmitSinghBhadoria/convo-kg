@@ -90,7 +90,7 @@ Each `Fact` carries its **source statement + speaker** so every answer is tracea
 
 - **Stable structural backbone** = Neo4j *labels*: `:Speaker`, `:Statement`, `:Entity`, `:Claim`, `:Attribute`.
 - **Open vocabulary** = the fine `type` (on entities) and `relation` (on edges) are free strings the LLM fills per conversation (`Entity {type:"FinancialProduct", name:"PMS"}`, `Claim {type:"RegulatoryComparison"}`).
-- **Optional proposal pass** (`ontology.py`): pass 1 — LLM proposes a small candidate type/relation vocabulary from the transcript; pass 2 — extraction is biased toward that vocabulary for consistency. Keeps the graph clean while staying domain-general.
+- **Proposal pass — ON by default, with base-schema fallback** (`ontology.py`): pass 1 — LLM proposes a small candidate type/relation vocabulary from the transcript; pass 2 — extraction is biased toward that vocabulary for consistency. If induction misfires on a given clip (empty/degenerate proposal, or a hard/noisy transcript), extraction **falls back to the fixed base backbone types** so it can never produce a broken graph. Induction enriches; the base schema guarantees a floor.
 
 Rationale: the vocabulary is genuinely induced from whatever audio arrives, but the graph *shape* is stable — which keeps text-to-Cypher tractable and provenance uniform. Fully-open extraction (no backbone) makes Q&A fight a different schema every run.
 
@@ -102,7 +102,7 @@ Rationale: the vocabulary is genuinely induced from whatever audio arrives, but 
 
 ## 8. Extraction (`extract.py`) — chunk → extract → consolidate
 
-1. **Chunk** the transcript by a **token budget with small overlap, snapping to speaker-turn boundaries** (handles up to the 15-min cap without one giant prompt).
+1. **Chunk** the transcript by a **token budget with small overlap, snapping to speaker-turn boundaries** (handles up to the 15-min cap without one giant prompt). Starting default: **~1500–2000 tokens/chunk with overlap**, set in `config.yaml` (tune empirically; one-line change).
 2. **Extract per chunk** against the induced schema, structured-output enforced; every fact must cite its **source statement**.
 3. **Consolidate**: merge duplicate entities across chunks via normalized-name + embedding similarity → stable IDs; deduplicate facts.
 
@@ -118,7 +118,7 @@ Upsert the `FactSet` into Neo4j: stable labels + open `type` property; entities 
 
 ## 11. Robustness & graceful degradation
 - **Source-grounding is the load-bearing anti-hallucination guarantee** — every fact must cite the transcript statement it came from; structurally prevents fabrication and makes facts auditable.
-- **Confidence threshold** (configurable) is a **coarse secondary filter** on top of mandatory grounding — not treated as a calibrated probability (models are often miscalibrated).
+- **Confidence threshold** (configurable, **default ~0.6, precision-biased**) is a **coarse secondary filter** on top of mandatory grounding — not treated as a calibrated probability (models are often miscalibrated). Lives in `config.yaml`; bias toward dropping shaky facts over keeping them.
 - **Precision over recall by design:** on hard/noisy audio the system yields fewer, lower-confidence, source-backed facts rather than a hallucinated graph. In the SNR experiment this degradation is **reported as intended behavior** (the threshold rejecting low-confidence facts), not silent failure.
 - No hardcoded speaker count (assume 2–4), domain, or format; **denoise always runs** (real input noise ≠ our synthetic mix).
 
@@ -130,7 +130,7 @@ Upsert the `FactSet` into Neo4j: stable labels + open `type` property; entities 
 
 The **gaps between curves** are the finding: facts robust while transcript degrades = "facts survive rough words"; falling together = front-end bottleneck.
 
-**Ground truth** (eval oracle, **never** the product path): scoped to the demo clip, **fact-level only** (~15–25 key facts + the demo-question answers). Built with a strong reference model (clean Whisper/frontier transcript + model-drafted fact list) then a **~15-min human verification** pass correcting facts and spot-checking numbers/names against the audio. Speaker noted only where attribution changes the fact.
+**Ground truth** (eval oracle, **never** the product path): scoped to the demo clip, **fact-level only** (~15–25 key facts + the demo-question answers). Built with the **best available oracle — a frontier model is permitted here** (a more accurate oracle = a more trustworthy metric; a weak tool would inject errors into the very thing we grade against) — to draft a clean transcript + fact list, then a **mandatory ~15-min human verification** pass correcting facts and spot-checking numbers/names against the audio (so we're never grading one model against another unchecked). Speaker noted only where attribution changes the fact. **Non-negotiable firewall:** all oracle/ground-truth code lives strictly in the eval path (`scripts/make_ground_truth.py`, `evaluate.py`) and is **never importable by the product path** — enforces the G4 product/eval separation.
 
 ## 13. Demo question set (tagged; draft answers from the reference transcript, pending verification)
 
@@ -181,8 +181,10 @@ Two entrypoints: **`run <audio>`** = product path (any clip → graph → Q&A, n
 - **Stubbed/limited in v1:** > 15-min clips (chunk-and-merge noted), multi-hop Q&A (one example), exhaustive ground truth (scoped to demo clip).
 - **Scaling path:** chunk-and-merge for long audio; agentic multi-hop retrieval (LangGraph) if Q&A grows; streaming ingestion; richer entity resolution.
 
-## 19. Open items (to confirm during implementation)
-- Exact chunk token budget + overlap (tune empirically).
-- Confidence threshold default (tune against ground truth).
-- Whether the optional ontology proposal pass is on by default for the demo.
-- Ground-truth oracle model choice for transcript construction (frontier vs large local Whisper).
+## 19. Resolved defaults (tune empirically; all in `config.yaml`)
+- **Ontology proposal pass:** ON by default, with base-schema fallback (can't produce a broken graph).
+- **Chunk size:** ~1500–2000 tokens with overlap (config value).
+- **Confidence threshold:** ~0.6, precision-biased (config value).
+- **Ground-truth oracle:** best available, frontier permitted; strictly eval-path, never importable by product; mandatory human-verify.
+
+All four are starting baselines, not frozen — each is a config value so tuning is a one-line change, never a code change.
