@@ -1,0 +1,188 @@
+# Atyx — Conversational Knowledge Graph: Design Spec
+
+**Date:** 2026-06-25 · **Target demo:** Mon 29 Jun 2026 · **Reviewer:** Debopam Bhattacherjee
+**Status:** design approved in brainstorming; pending final user review before implementation planning.
+
+---
+
+## 1. Goal (one line)
+From recorded **multi-party Hinglish audio**, extract facts into a **knowledge graph** and answer **natural-language questions** about what was said — running extraction and Q&A on a **local open-weight LLM**, built to work on **arbitrary, noisy real-world audio**.
+
+## 2. Guiding principle: build general, demo specific
+The system is built for **arbitrary input audio** — no hardcoded speaker count, domain, topic, or schema. The financial **PMS-vs-Mutual-Fund** clip is the *showcase instance*, not a baked-in assumption. The pipeline must accept any clip (ideally live in the demo), induce its ontology from the conversation itself, and **degrade gracefully** (fewer, lower-confidence, source-backed facts on hard audio — never a crash or a hallucinated graph).
+
+## 3. Scope
+
+**In scope (one complete working spine, end to end):**
+`Audio → Denoise → Diarization → Hinglish→English ASR → Induced-ontology fact extraction → Neo4j graph → single-hop NL Q&A`, plus a **controlled-SNR evaluation harness**.
+
+**Out of scope for v1 (architect for, don't build):** clips > 15 min (chunk-and-merge is the noted extension), streaming / large-scale ingestion, multi-hop Q&A as a metric (one worked example only), guaranteed accuracy under adversarial noise, auth / multi-tenancy / UI polish.
+
+**Hard constraints:**
+- Extraction + Q&A on a **local open-weight LLM** (no frontier API in the product path).
+- **24 GB unified memory (Apple M4):** models loaded/released sequentially, never concurrently.
+- **15-minute clip cap** for v1.
+
+## 4. Architecture — sequential pipeline of pure stages over disk artifacts
+
+Each stage is a pure function `input file → one job → output file`. Stages never call each other; they communicate through **typed artifacts on disk**. The orchestrator runs them in order.
+
+```
+data/raw/<clip>.wav
+  └─ enhance.py     → data/work/<clip>.clean.wav
+       └─ diarize_asr.py → data/work/<clip>.transcript.json   (who said what, English)
+            └─ extract.py    → data/work/<clip>.facts.json    (induced-ontology facts)
+                 └─ graph.py      → Neo4j (nodes + edges)
+                      └─ qa.py     → English answers (reads Neo4j)
+```
+
+**Why this pattern (the tradeoffs chosen):**
+1. **Memory safety (dominant constraint).** Whisper + pyannote + the 9B LLM cannot co-reside in 24 GB. Disk artifacts let each stage load → run → fully release → exit before the next loads. In-memory pipelining would OOM.
+2. **Auditability.** Every stage output is a human-readable file; you can see exactly where an error enters (e.g. a mangled Hindi word in `transcript.json`) instead of guessing. This is what makes the SNR experiment measurable — re-run one stage, diff the artifact.
+3. **Resumability & fast iteration.** A bug in `extract.py` re-runs only that stage against the cached `transcript.json` — no re-transcription. Each stage is independently CLI-runnable.
+4. **Testability & isolation.** One job, typed I/O per stage → testable with tiny fixtures, reasoned about alone.
+
+**Design patterns:**
+- **Data contracts (typed schemas):** every artifact shape is one Pydantic model in `contracts.py`. The schemas *are* the inter-stage interfaces; mismatches fail loudly at the boundary.
+- **Thin uniform stage interface:** every stage is `run(clip_name) -> writes artifact`; the orchestrator is a list of stages. Adding/reordering/stubbing a stage is a one-line change.
+
+**Explicitly NOT used (YAGNI):** no streaming, async, message queue, or DAG framework (Airflow/Prefect); **no LangChain/LangGraph** (linear deterministic flow needs none, and in-memory framework state fights the memory model; hand-written prompts + Pydantic + the Neo4j driver are more legible and defensible). Noted in the design note as the scaling path: LangGraph becomes worth it only if Q&A grows into agentic multi-hop retrieval.
+
+## 5. Data contracts (`contracts.py`)
+
+```python
+# Transcript (diarize_asr.py output) — merge of "who" (diarization) + "what" (ASR)
+class Word(BaseModel):
+    text: str; start: float; end: float; speaker: str
+class Utterance(BaseModel):
+    speaker: str            # anonymous label e.g. "SPEAKER_01"
+    text: str               # English
+    start: float; end: float
+    words: list[Word]
+class Transcript(BaseModel):
+    clip: str
+    snr: str | None         # "10dB" — set on the eval path, None on the product path
+    utterances: list[Utterance]
+
+# Facts (extract.py output) — entities are FIRST-CLASS nodes with stable IDs (multi-hop-ready)
+class Entity(BaseModel):
+    id: str                 # "entity:pms"  (stable dedupe key)
+    label: str              # structural backbone (fixed): Speaker | Statement | Entity | Claim | Attribute
+    type: str               # INDUCED open vocabulary: "FinancialProduct", "RegulatoryComparison", ...
+    name: str
+    attrs: dict
+class Fact(BaseModel):
+    subject_id: str
+    relation: str           # induced open vocabulary: WORKS_AT, HAS_MIN_INVESTMENT, ALLOWS, CONTRASTS_WITH, ...
+    object_id: str
+    statement: str          # MANDATORY — the exact source utterance this came from (grounding)
+    speaker: str
+    confidence: float       # LLM self-rated 0–1 — coarse secondary filter only
+class FactSet(BaseModel):
+    clip: str
+    entities: list[Entity]
+    facts: list[Fact]
+```
+
+Each `Fact` carries its **source statement + speaker** so every answer is traceable to *"X said this at 0:42."*
+
+## 6. Induced ontology (option c + optional proposal pass)
+
+- **Stable structural backbone** = Neo4j *labels*: `:Speaker`, `:Statement`, `:Entity`, `:Claim`, `:Attribute`.
+- **Open vocabulary** = the fine `type` (on entities) and `relation` (on edges) are free strings the LLM fills per conversation (`Entity {type:"FinancialProduct", name:"PMS"}`, `Claim {type:"RegulatoryComparison"}`).
+- **Optional proposal pass** (`ontology.py`): pass 1 — LLM proposes a small candidate type/relation vocabulary from the transcript; pass 2 — extraction is biased toward that vocabulary for consistency. Keeps the graph clean while staying domain-general.
+
+Rationale: the vocabulary is genuinely induced from whatever audio arrives, but the graph *shape* is stable — which keeps text-to-Cypher tractable and provenance uniform. Fully-open extraction (no backbone) makes Q&A fight a different schema every run.
+
+## 7. LLM integration (`llm.py`) — runner-agnostic
+
+- Talk to a **local OpenAI-compatible endpoint** via the standard OpenAI client. `base_url`, `model`, and `embed_model` live in `config.yaml`. Default: LM Studio `http://localhost:1234/v1`, model `qwen/qwen3.5-9b`; swappable to Ollama without touching pipeline code.
+- **Extraction** uses **JSON-schema / structured-output enforcement** (derived from the Pydantic models) so facts return as clean, valid JSON.
+- **Embeddings** (`nomic-embed-text`, same endpoint) power the Q&A semantic fallback and cross-chunk entity matching — no extra infra.
+
+## 8. Extraction (`extract.py`) — chunk → extract → consolidate
+
+1. **Chunk** the transcript by a **token budget with small overlap, snapping to speaker-turn boundaries** (handles up to the 15-min cap without one giant prompt).
+2. **Extract per chunk** against the induced schema, structured-output enforced; every fact must cite its **source statement**.
+3. **Consolidate**: merge duplicate entities across chunks via normalized-name + embedding similarity → stable IDs; deduplicate facts.
+
+## 9. Graph build (`graph.py`)
+Upsert the `FactSet` into Neo4j: stable labels + open `type` property; entities keyed by stable ID (idempotent upserts). Neo4j Browser gives the live, clickable graph for the demo.
+
+## 10. Q&A (`qa.py`) — schema-aware text-to-Cypher with fallback
+1. **Introspect the live Neo4j schema** (labels, relationship types, property keys) and inject it into the Cypher-generation prompt — Q&A adapts to whatever ontology was induced.
+2. LLM generates Cypher → **validate via `EXPLAIN`** → on error, **retry** with the error fed back.
+3. Run the query; LLM composes an English answer **grounded in the returned rows** (with provenance).
+4. **Embedding fallback**: if no clean Cypher resolves, retrieve relevant statements by semantic similarity and answer from those.
+5. **Scope:** single-hop is the v1 hero path; the graph is multi-hop-ready and one worked multi-hop example (the PMS-vs-MF *regulation comparison*) is demonstrated.
+
+## 11. Robustness & graceful degradation
+- **Source-grounding is the load-bearing anti-hallucination guarantee** — every fact must cite the transcript statement it came from; structurally prevents fabrication and makes facts auditable.
+- **Confidence threshold** (configurable) is a **coarse secondary filter** on top of mandatory grounding — not treated as a calibrated probability (models are often miscalibrated).
+- **Precision over recall by design:** on hard/noisy audio the system yields fewer, lower-confidence, source-backed facts rather than a hallucinated graph. In the SNR experiment this degradation is **reported as intended behavior** (the threshold rejecting low-confidence facts), not silent failure.
+- No hardcoded speaker count (assume 2–4), domain, or format; **denoise always runs** (real input noise ≠ our synthetic mix).
+
+## 12. Evaluation harness (`evaluate.py`) — controlled-SNR, three curves
+`add_noise.py` mixes controlled noise at known SNRs over the clean baseline (a true single-variable experiment). At each SNR, measure the **whole chain** and plot **three curves on one SNR axis**:
+1. **Transcript similarity** vs the reference transcript — the *ceiling* (if ASR degrades, extraction can't recover facts that aren't in the transcript).
+2. **Fact-recall** vs ground-truth facts — the **hero metric**.
+3. **Q&A correctness** vs the answer key — the user-facing outcome.
+
+The **gaps between curves** are the finding: facts robust while transcript degrades = "facts survive rough words"; falling together = front-end bottleneck.
+
+**Ground truth** (eval oracle, **never** the product path): scoped to the demo clip, **fact-level only** (~15–25 key facts + the demo-question answers). Built with a strong reference model (clean Whisper/frontier transcript + model-drafted fact list) then a **~15-min human verification** pass correcting facts and spot-checking numbers/names against the audio. Speaker noted only where attribution changes the fact.
+
+## 13. Demo question set (tagged; draft answers from the reference transcript, pending verification)
+
+**Single-hop (v1 hero metric):**
+1. Minimum investment for a PMS? → ₹50 lakh
+2. Minimum investment for an AIF? → ₹1 crore
+3. Which firm offers both PMS and mutual funds? → White Oak
+4. What did the expert say about transparency in a PMS? → cuts both ways; you see every transaction, which can be stressful
+5. How are fees structured differently in a PMS? → performance/alpha-linked fees allowed
+6. What happened in March 2020 per the speaker? → investors panicked and pulled money
+7. India's equity mutual fund corpus mentioned? → ₹20–21 lakh crore
+8. Does corpus size determine whether to buy a PMS? → no; it's about fit/engagement
+
+**Multi-hop (one worked example — graph pays off):**
+9. How does a PMS differ from a mutual fund in regulation? → PMS/AIF light-touch (more manager latitude, performance fees); MF tightly defined. *(traverses PMS ∩ MF attributes on the regulation dimension)*
+
+## 14. Tech stack & environment
+- **Python 3.12 pinned via `uv`** (3.14 has no ML wheels). Lockfile for reproducibility.
+- **Denoise:** DeepFilterNet. **ASR:** mlx-whisper (fast dev loop, Metal) + WhisperX (final attributed pass). **Diarization:** pyannote 3.x (HF token).
+- **LLM:** `qwen/qwen3.5-9b` via LM Studio OpenAI-compatible endpoint (runner-agnostic). **Embeddings:** nomic-embed (local).
+- **Graph:** Neo4j Community via Docker. **Driver:** neo4j-python.
+- **Core deps:** `openai`, `pydantic`, `neo4j`, `soundfile`/`librosa`, `numpy`.
+
+## 15. Repo structure
+```
+contracts.py · config.py · llm.py · enhance.py · diarize_asr.py · ontology.py ·
+extract.py · graph.py · qa.py · pipeline.py (run <audio>) · evaluate.py (eval <audio> <ref>)
+scripts/{add_noise.py, make_ground_truth.py} · notebooks/demo.ipynb · design_note.md
+data/{raw,noisy,ground_truth,work}/   (media + noisy/work gitignored)
+```
+Two entrypoints: **`run <audio>`** = product path (any clip → graph → Q&A, no reference needed); **`eval <audio> <ref>`** = SNR sweep → three curves.
+
+## 16. Data assets
+- **PMS-vs-MF (~10 min)** — rich demo clip; reference transcript available (clean, semantic, not verbatim).
+- **sample2 (48 s, heavier Hindi)** — generality + translation stress test; reference transcript available.
+- Source media is gitignored (exceeds GitHub limits); README documents sourcing.
+
+## 17. Build order / milestones
+1. **Env + infra**: uv Python 3.12, deps, Neo4j up, LM Studio reachable, `config.yaml`, `contracts.py`.
+2. **Audio → English transcript** (denoise → diarize → ASR+translate); validate vs reference on `dev`/sample2, multiple SNRs. *(hardest; do first)*
+3. **Transcript → graph** (induced ontology, schema-enforced extraction, chunk+consolidate, Neo4j upsert).
+4. **Graph → answers** (schema-aware text-to-Cypher, single-hop; one worked multi-hop).
+5. **Eval harness** (SNR sweep → three curves) + ground-truth build.
+6. **Package** (README, demo notebook, design note).
+
+## 18. Risks, what's stubbed, scaling path
+- **Biggest risk:** Hinglish ASR on noisy multi-speaker audio (esp. rapid interjections). Mitigation: tune denoise + diarization; track accuracy vs SNR; report honestly.
+- **Stubbed/limited in v1:** > 15-min clips (chunk-and-merge noted), multi-hop Q&A (one example), exhaustive ground truth (scoped to demo clip).
+- **Scaling path:** chunk-and-merge for long audio; agentic multi-hop retrieval (LangGraph) if Q&A grows; streaming ingestion; richer entity resolution.
+
+## 19. Open items (to confirm during implementation)
+- Exact chunk token budget + overlap (tune empirically).
+- Confidence threshold default (tune against ground truth).
+- Whether the optional ontology proposal pass is on by default for the demo.
+- Ground-truth oracle model choice for transcript construction (frontier vs large local Whisper).
