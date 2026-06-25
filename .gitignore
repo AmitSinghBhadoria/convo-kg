@@ -104,3 +104,10 @@ dmypy.json
 # Secrets
 .pypirc
 *.local
+
+# Visual-companion brainstorm mockups
+.superpowers/
+
+# Design-tool thumbnails
+.thumbnail
+**/.thumbnail
