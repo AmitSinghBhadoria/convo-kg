@@ -147,41 +147,70 @@ The **gaps between curves** are the finding: facts robust while transcript degra
 **Multi-hop (one worked example — graph pays off):**
 9. How does a PMS differ from a mutual fund in regulation? → PMS/AIF light-touch (more manager latitude, performance fees); MF tightly defined. *(traverses PMS ∩ MF attributes on the regulation dimension)*
 
-## 14. Tech stack & environment
+## 14. Frontend & API architecture (the demo surface)
+The demo UI is the approved **Atyx dark-editorial design** (`Ui-design/Atyx Convo-KG.html` prototype): Cormorant Garamond display + Inter UI + JetBrains Mono code, near-black canvas, gold accent. The prototype is a self-contained React/D3 bundle with **mock data + simulated timing**; we **rebuild it as clean, no-build source** and wire it to the real pipeline.
+
+**Stack:** vanilla JS + **D3** (graph + SNR curves), a single static page **served by a thin FastAPI backend** (no Node toolchain). Fonts vendored locally for offline reproducibility.
+
+**Two surfaces** (tabs): **Console** (clip picker · Run live · vertical pipeline timeline · streaming transcript · interactive knowledge graph · Ask Atyx) and **Experiment** (3-curve SNR chart + facts/WER table).
+
+**FastAPI endpoints (the contract):**
+- `POST /api/run` — start the pipeline on a selected/uploaded clip → `{run_id}`.
+- `GET /api/run/{run_id}/stream` — **SSE** stream of real progress: `stage` (index, status, elapsed), `transcript_line` ({speaker, t, text}), `graph_node`/`graph_edge` as extraction emits them, `done`/`error`.
+- `POST /api/ask` — `{question}` → `{answer, explanation, source:{speaker,t}, cypher, node_ids:[subgraph], src_line}`. Free text → real schema-aware text-to-Cypher; the prototype's 3 questions become **suggested prompts**.
+- `GET /api/experiment` — `{snr[], sim[], recall[], qa[], table[]}` from `evaluate.py` artifacts.
+- `GET /api/graph` — current graph snapshot (nodes/edges) for initial render.
+- Static mount serves the frontend.
+
+**Frontend data model** (mirrors `contracts.py`): transcript line = `Utterance`; graph node = `Entity` (induced `type` → node size/color via a small mapping with a default for unknown types); edge = `Fact.relation`; a Q&A message carries answer + cypher + source + highlighted `node_ids`. Real graph uses a **D3 force layout** (the prototype's hand-placed coords are dropped).
+
+**New backend requirement this surfaces:** `qa.py` must return, per answer, the **subgraph node IDs used** and the **source statement(s)** — already implied by our "full explainability" commitment; now contractually required by the UI.
+
+**Honesty notes:** the prototype fakes an ~8.8 s run; **real runs are slower and messier**. The UI must handle **variable timing, stage errors, and graceful degradation** (fewer graph nodes / lower-confidence facts on noisy audio) — the streaming model already fits this. Stage sub-labels show the **real stack** (DeepFilterNet · pyannote 3.x · WhisperX/mlx-whisper · qwen3.5-9b via LM Studio · Neo4j).
+
+**Third entrypoint:** `serve` — launch FastAPI + frontend for the live demo (alongside `run` and `eval`).
+
+## 15. Tech stack & environment
 - **Python 3.12 pinned via `uv`** (3.14 has no ML wheels). Lockfile for reproducibility.
 - **Denoise:** DeepFilterNet. **ASR:** mlx-whisper (fast dev loop, Metal) + WhisperX (final attributed pass). **Diarization:** pyannote 3.x (HF token).
 - **LLM:** `qwen/qwen3.5-9b` via LM Studio OpenAI-compatible endpoint (runner-agnostic). **Embeddings:** nomic-embed (local).
 - **Graph:** Neo4j Community via Docker. **Driver:** neo4j-python.
 - **Core deps:** `openai`, `pydantic`, `neo4j`, `soundfile`/`librosa`, `numpy`.
+- **API/UI:** `fastapi` + `uvicorn` (SSE); frontend = static vanilla JS + **D3** (vendored), fonts vendored (Cormorant Garamond, Inter, JetBrains Mono). No Node build.
 
-## 15. Repo structure
+## 16. Repo structure
 ```
-contracts.py · config.py · llm.py · enhance.py · diarize_asr.py · ontology.py ·
-extract.py · graph.py · qa.py · pipeline.py (run <audio>) · evaluate.py (eval <audio> <ref>)
+src/
+  contracts.py · config.py · llm.py · enhance.py · diarize_asr.py · ontology.py ·
+  extract.py · graph.py · qa.py · pipeline.py (run <audio>) · evaluate.py (eval <audio> <ref>) ·
+  api.py (FastAPI: /api/run·stream·ask·experiment·graph + serves frontend/)
+frontend/ index.html · app.js · styles.css · assets/fonts/   (rebuilt from the prototype)
 scripts/{add_noise.py, make_ground_truth.py} · notebooks/demo.ipynb · design_note.md
+Ui-design/Atyx Convo-KG.html   (approved design reference)
 data/{raw,noisy,ground_truth,work}/   (media + noisy/work gitignored)
 ```
-Two entrypoints: **`run <audio>`** = product path (any clip → graph → Q&A, no reference needed); **`eval <audio> <ref>`** = SNR sweep → three curves.
+Three entrypoints: **`run <audio>`** = product path (any clip → graph → Q&A, no reference); **`eval <audio> <ref>`** = SNR sweep → three curves; **`serve`** = FastAPI + frontend for the live demo.
 
-## 16. Data assets
+## 17. Data assets
 - **PMS-vs-MF (~10 min)** — rich demo clip; reference transcript available (clean, semantic, not verbatim).
 - **sample2 (48 s, heavier Hindi)** — generality + translation stress test; reference transcript available.
 - Source media is gitignored (exceeds GitHub limits); README documents sourcing.
 
-## 17. Build order / milestones
+## 18. Build order / milestones
 1. **Env + infra**: uv Python 3.12, deps, Neo4j up, LM Studio reachable, `config.yaml`, `contracts.py`.
 2. **Audio → English transcript** (denoise → diarize → ASR+translate); validate vs reference on `dev`/sample2, multiple SNRs. *(hardest; do first)*
 3. **Transcript → graph** (induced ontology, schema-enforced extraction, chunk+consolidate, Neo4j upsert).
-4. **Graph → answers** (schema-aware text-to-Cypher, single-hop; one worked multi-hop).
+4. **Graph → answers** (schema-aware text-to-Cypher, single-hop; one worked multi-hop; returns subgraph node IDs + source).
 5. **Eval harness** (SNR sweep → three curves) + ground-truth build.
-6. **Package** (README, demo notebook, design note).
+6. **Frontend + API**: FastAPI endpoints + SSE; rebuild the Atyx UI as vanilla JS/D3 from the prototype; wire Run live / Ask / Experiment to real streamed data.
+7. **Package** (README, demo walkthrough, design note).
 
-## 18. Risks, what's stubbed, scaling path
+## 19. Risks, what's stubbed, scaling path
 - **Biggest risk:** Hinglish ASR on noisy multi-speaker audio (esp. rapid interjections). Mitigation: tune denoise + diarization; track accuracy vs SNR; report honestly.
 - **Stubbed/limited in v1:** > 15-min clips (chunk-and-merge noted), multi-hop Q&A (one example), exhaustive ground truth (scoped to demo clip).
 - **Scaling path:** chunk-and-merge for long audio; agentic multi-hop retrieval (LangGraph) if Q&A grows; streaming ingestion; richer entity resolution.
 
-## 19. Resolved defaults (tune empirically; all in `config.yaml`)
+## 20. Resolved defaults (tune empirically; all in `config.yaml`)
 - **Ontology proposal pass:** ON by default, with base-schema fallback (can't produce a broken graph).
 - **Chunk size:** ~1500–2000 tokens with overlap (config value).
 - **Confidence threshold:** ~0.6, precision-biased (config value).
