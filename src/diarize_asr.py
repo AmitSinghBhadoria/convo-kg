@@ -11,13 +11,13 @@ WORK = ROOT / "data" / "work"
 ASR_PY = ROOT / ".venv-asr" / "bin" / "python"
 WORKER = ROOT / "scripts" / "asr_worker.py"
 
-def run(clip: str, mode: str = "dev") -> Path:
+def run(clip: str) -> Path:
     load_dotenv(ROOT / ".env")
     if not ASR_PY.exists():
         raise RuntimeError(f"audio venv missing at {ASR_PY} — build it (README: requirements-asr.txt)")
     if "HF_TOKEN" not in os.environ:
         raise RuntimeError("HF_TOKEN not set (needed for pyannote) — add it to .env")
-    proc = subprocess.run([str(ASR_PY), str(WORKER), clip, mode],
+    proc = subprocess.run([str(ASR_PY), str(WORKER), clip],
                           cwd=str(ROOT), env={**os.environ}, capture_output=True, text=True)
     if proc.returncode != 0:
         raise RuntimeError(f"asr worker failed (rc={proc.returncode}):\n{proc.stderr[-3000:]}")
@@ -27,4 +27,4 @@ def run(clip: str, mode: str = "dev") -> Path:
     return dst
 
 if __name__ == "__main__":
-    run(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else "dev")
+    run(sys.argv[1])
