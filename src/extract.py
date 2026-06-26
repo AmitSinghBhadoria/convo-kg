@@ -188,6 +188,11 @@ def consolidate(
     facts: list[Fact] = []
 
     for fact in raw_facts:
+        # Drop ungrounded facts (grounding is mandatory; "" is a valid string for the
+        # schema, so enforce the invariant in code, not only via schema/prompt).
+        if not fact.statement_id:
+            continue
+
         # Drop low-confidence (strict < so == threshold is KEPT)
         if fact.confidence < threshold:
             continue

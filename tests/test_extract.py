@@ -29,9 +29,17 @@ def test_consolidate_merges_dedups_and_filters_confidence():
 def test_consolidate_drops_facts_with_unknown_entity_refs():
     ents = [Entity(id="c0:e1", label="Entity", type="Instrument", name="PMS")]
     facts = [Fact(subject_id="c0:e1", relation="HAS_VALUE", object_id="c0:UNKNOWN",
-                  statement="x", speaker="S0", confidence=0.9)]
+                  statement="x", speaker="S0", confidence=0.9, statement_id="stmt:pms:0")]
     fs = consolidate(ents, facts, vocab=None, threshold=0.6, resolver=_resolver(), clip="pms")
-    assert fs.facts == []                                 # dangling object ref -> dropped
+    assert fs.facts == []                                 # dangling object ref -> dropped (grounded, so this tests the ref path)
+
+def test_consolidate_drops_facts_with_empty_statement_id():
+    ents = [Entity(id="c0:e1", label="Entity", type="Instrument", name="PMS"),
+            Entity(id="c0:e2", label="Attribute", type="Money", name="50 lakh")]
+    facts = [Fact(subject_id="c0:e1", relation="HAS_VALUE", object_id="c0:e2",
+                  statement="PMS 50L", speaker="S0", confidence=0.9, statement_id="")]  # ungrounded
+    fs = consolidate(ents, facts, vocab=None, threshold=0.6, resolver=_resolver(), clip="pms")
+    assert fs.facts == []                                 # high-conf + valid refs but no statement_id -> dropped
 
 
 def test_prompt_marks_overlap_context_only_and_tags_statement_ids():
