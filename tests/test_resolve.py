@@ -20,8 +20,6 @@ def test_relation_safe_charset():
     # "the" dropped; "on" survives (preposition kept); punctuation stripped
     assert safe_rel_type(canonical_relation("decides (on) the! plan")) == "DECIDES_ON_PLAN"
 
-@pytest.mark.skip(reason="BASE_ONTOLOGY arrives in Task 4 (ontology.py)")
-# NOTE: Remove this skip in Task 4 once src/ontology.py is created with BASE_ONTOLOGY.
 def test_base_ontology_relations_roundtrip_clean():       # canonical vocab must be a fixed point
     from src.ontology import BASE_ONTOLOGY
     for rel in BASE_ONTOLOGY.relations:
