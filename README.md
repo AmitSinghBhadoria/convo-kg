@@ -54,3 +54,37 @@ fact extraction and Cypher generation, so turn thinking off (LM Studio →
 model settings → Reasoning → off). The client has a `content or
 reasoning_content` fallback as a safety net, but thinking-off is the supported
 path.
+
+### Graph database (Neo4j)
+The knowledge graph is stored in a local **Neo4j 5.26** instance (Neo4j Desktop —
+create a local instance named `atyx`, set a password, Start it). Add the
+connection details to `.env`:
+
+```
+NEO4J_URI=neo4j://127.0.0.1:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=<your instance password>
+NEO4J_DATABASE=neo4j
+```
+
+The default `neo4j` database is all that's needed. Browse the graph at
+`http://localhost:7474` (e.g. `MATCH (n) RETURN n LIMIT 100`).
+
+## Running the pipeline
+
+Stages are sequential and pass typed artifacts through `data/work/`. Activate the
+main venv first: `source .venv/bin/activate`.
+
+```bash
+# Phase 1 — audio -> speaker-attributed English transcript
+python -m src.enhance <clip>            # denoise  -> data/work/<clip>.clean.wav
+python -m src.diarize_asr <clip>        # diarize + translate -> data/work/<clip>.transcript.json
+
+# Phase 2 — transcript -> knowledge graph (needs LM Studio + Neo4j running)
+python -m src.extract <clip>            # induce ontology + extract facts -> data/work/<clip>.facts.json
+python -m src.graph <clip>              # idempotent upsert into Neo4j
+```
+
+`<clip>` is a stem under `data/raw/` / `data/work/` (e.g. `sample2`). Re-running
+`src.graph` is idempotent (MERGE on stable ids). Every fact edge stores a
+`source_statement_id` that traces back to the `:Statement` node it came from.
