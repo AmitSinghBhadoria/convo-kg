@@ -41,3 +41,20 @@ class FactSet(BaseModel):
     clip: str
     entities: list[Entity] = Field(default_factory=list)
     facts: list[Fact] = Field(default_factory=list)
+
+class Provenance(BaseModel):
+    statement_id: str
+    speaker: str
+    text: str
+    kind: Literal["source", "related"]          # causal edge source vs related context
+
+class QAResult(BaseModel):
+    question: str
+    answer: str
+    mode: Literal["cypher", "semantic-fallback"]
+    found: bool
+    cypher: str | None = None
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    provenance: list[Provenance] = Field(default_factory=list)
+    graph_node_ids: list[str] = Field(default_factory=list)   # nodes behind the answer (node-highlight UI)
+    hops: Literal["single", "multi"] = "single"
