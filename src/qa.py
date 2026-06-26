@@ -121,3 +121,80 @@ def introspect_schema(driver, database: str) -> str:
         ]
 
     return format_schema(labels=labels, rel_types=rel_types, entity_types=entity_types)
+
+
+# ---------------------------------------------------------------------------
+# Cypher generation — Task 4
+# ---------------------------------------------------------------------------
+
+# JSON schema that enforces a structured LLM response containing only a
+# "cypher" string.  Passed directly to chat_json as the response format.
+CYPHER_SCHEMA: dict = {
+    "type": "object",
+    "properties": {"cypher": {"type": "string"}},
+    "required": ["cypher"],
+    "additionalProperties": False,
+}
+
+
+def build_cypher_prompt(
+    question: str,
+    schema_text: str,
+    error: str | None = None,
+) -> tuple[str, str]:
+    """Return a (system, user) prompt pair for read-only Cypher generation.
+
+    *question* — the natural-language question to answer.
+    *schema_text* — the formatted graph schema (from ``format_schema``).
+    *error* — if provided (retry path), the previous error text is included
+               in the user message with an instruction to fix it.
+    """
+    system = (
+        "You are an expert Neo4j Cypher query generator.\n"
+        "\n"
+        "RULES — you MUST follow all of them:\n"
+        "1. Produce exactly ONE read-only Cypher query.\n"
+        "2. Use ONLY these clauses: MATCH, WHERE, RETURN, ORDER BY, LIMIT.\n"
+        "   Absolutely FORBIDDEN: CREATE, MERGE, DELETE, SET, REMOVE, DROP,\n"
+        "   DETACH, FOREACH, LOAD, CALL (unless db.labels / db.relationshipTypes).\n"
+        "3. When the answer requires traversing a fact relationship (any edge in\n"
+        "   the graph), RETURN that relationship's source_statement_id aliased\n"
+        "   as provenance so the caller can trace the answer back to its source.\n"
+        "4. Also RETURN the relevant node id(s) so individual nodes can be fetched.\n"
+        "5. Prefer single-hop queries; use multi-hop only if the question\n"
+        "   strictly requires it.\n"
+        "6. Output ONLY valid Cypher inside the JSON field 'cypher'.\n"
+        "   Do NOT include explanations or markdown fences.\n"
+    )
+
+    user_parts = [
+        "Graph schema:\n",
+        schema_text,
+        "\n\nQuestion: " + question,
+    ]
+
+    if error:
+        user_parts.append(
+            f"\n\nThe previous query produced this error:\n{error}\n"
+            "Please fix the Cypher so it no longer causes that error."
+        )
+
+    user = "".join(user_parts)
+    return system, user
+
+
+def generate_cypher(
+    question: str,
+    schema_text: str,
+    llm,
+    error: str | None = None,
+) -> str:
+    """Ask the local LLM to generate a read-only Cypher query.
+
+    Uses ``build_cypher_prompt`` to form the prompt and ``CYPHER_SCHEMA`` to
+    enforce a structured JSON response.  Returns the ``cypher`` field,
+    stripped of leading/trailing whitespace.
+    """
+    system, user = build_cypher_prompt(question, schema_text, error)
+    result = llm.chat_json(system, user, CYPHER_SCHEMA)
+    return result["cypher"].strip()

@@ -48,3 +48,47 @@ def test_introspect_schema_against_live_graph():
     finally:
         drv.close()
     assert "Entity" in s and "Statement" in s               # labels present from the live graph
+
+
+# ---------------------------------------------------------------------------
+# Task 4: Cypher generation
+# ---------------------------------------------------------------------------
+
+from src.qa import build_cypher_prompt, generate_cypher
+
+
+def test_cypher_prompt_carries_schema_and_readonly_and_provenance_rules():
+    system, user = build_cypher_prompt("what is the goal?", "SCHEMA-TEXT-HERE")
+    assert "SCHEMA-TEXT-HERE" in user
+    low = (system + user).lower()
+    assert "read-only" in low or "read only" in low
+    assert "source_statement_id" in (system + user)         # provenance rule present
+    assert "create" in low and "delete" in low              # forbids writes explicitly
+
+
+def test_cypher_prompt_includes_prior_error_on_retry():
+    _, user = build_cypher_prompt("q", "S", error="SyntaxError: unexpected FOO")
+    assert "SyntaxError: unexpected FOO" in user
+
+
+def test_generate_cypher_returns_cypher_field():
+    class FakeLLM:
+        def chat_json(self, system, user, schema): return {"cypher": "MATCH (n) RETURN n"}
+    assert generate_cypher("q", "S", FakeLLM()) == "MATCH (n) RETURN n"
+
+
+@pytest.mark.integration
+def test_generate_cypher_is_readonly_against_live_schema():
+    import os
+    from src.graph import connect
+    from src.config import load_config
+    from src.llm import LLM
+    from src.qa import introspect_schema, generate_cypher, is_read_only
+    drv = connect(); db = os.environ.get("NEO4J_DATABASE", "neo4j")
+    try:
+        schema = introspect_schema(drv, db)
+        cy = generate_cypher("What strategies help get rich before 30?", schema, LLM(load_config().llm))
+    finally:
+        drv.close()
+    assert is_read_only(cy), f"generated non-read-only Cypher:\n{cy}"
+    assert "RETURN" in cy.upper()                            # produced an actual query
