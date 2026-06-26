@@ -554,7 +554,12 @@ git commit -m "feat(enhance): DeepFilterNet denoise via isolated-venv subprocess
 
 ---
 
-### Task 7: `diarize_asr` — dev path (mlx-whisper + pyannote, `.venv-asr` worker)
+### Task 7: `diarize_asr` (mlx-whisper translate + pyannote, `.venv-asr` worker)
+
+> **Note (post-build):** this is the **single, live ASR path**. The originally-planned
+> WhisperX "final path" (Task 8) was built, evaluated, and **dropped** — see Task 8 for
+> why. The shipped `asr_worker.py` is single-path (`run(clip)` / `asr_worker.py <clip>`),
+> not the `dev|final` two-mode version sketched in the code block below.
 
 > **Architecture note (decided during build):** the ASR/diarization stack (WhisperX, pyannote, mlx-whisper) is irreconcilable with the main env's deps (torchaudio version), so it lives in the pre-built, exact-pinned `.venv-asr` (`requirements-asr.txt`). The `diarize_asr` stage runs there via a **subprocess worker** — same pattern as denoise. The controller has ALREADY built and verified `.venv-asr` (all import together; pyannote `SpeakerDiarization` loads; mlx-whisper imports). Pure merge logic stays in the main env (unit-testable); the worker imports it.
 
@@ -563,7 +568,7 @@ git commit -m "feat(enhance): DeepFilterNet denoise via isolated-venv subprocess
 
 **Interfaces:**
 - Consumes: `data/work/<clip>.clean.wav`; pre-built `.venv-asr`; `HF_TOKEN` (`.env`).
-- Produces: `merge_words_to_speakers(words, turns) -> list[dict]` (pure); `run(clip, mode="dev") -> Path` writing `data/work/<clip>.transcript.json` (a `Transcript`). Worker CLI: `python scripts/asr_worker.py <clip> <dev|final>`.
+- Produces: `merge_words_to_speakers(words, turns) -> list[dict]` (pure); `run(clip) -> Path` writing `data/work/<clip>.transcript.json` (a `Transcript`). Worker CLI: `python scripts/asr_worker.py <clip>`.
 
 - [ ] **Step 1: pure merge logic + failing unit test**
 
@@ -714,7 +719,7 @@ Run: `... && pytest tests/test_diarize_asr.py -v` → merge + guard PASS (no mod
 
 - [ ] **Step 6: integration smoke on dev.wav** (needs `.venv-asr` + HF_TOKEN; downloads mlx whisper-large-v3 ~3GB + pyannote)
 
-`cd /Users/amit/Personal/Atyx && source .venv/bin/activate && python -m src.enhance dev && python -m src.diarize_asr dev dev`
+`cd /Users/amit/Personal/Atyx && source .venv/bin/activate && python -m src.enhance dev && python -m src.diarize_asr dev`
 Expected: writes `data/work/dev.transcript.json` with speaker-tagged English utterances. Eyeball: speakers alternate sensibly; Hindi rendered as English.
 If the worker errors (mlx-whisper model/API, pyannote), the orchestrator surfaces stderr — **STOP and report, do not hack.**
 
@@ -727,65 +732,28 @@ git commit -m "feat(asr): dev-path diarize_asr via .venv-asr worker (mlx-whisper
 
 ---
 
-### Task 8: `diarize_asr` — final path (WhisperX align + diarize, `.venv-asr`)
+### Task 8: ~~`diarize_asr` — final path (WhisperX align + diarize)~~ — SUPERSEDED / DROPPED
 
-**Files:**
-- Create: `scripts/asr_worker_final.py` (in `.venv-asr`, imported by `asr_worker.py` when mode=`final`); add a test to `tests/test_diarize_asr.py`.
+**Status: built, evaluated, and removed from the live path (2026-06-26).** A WhisperX
+final pass (`scripts/asr_worker_final.py`) with `task="translate"` + English wav2vec
+forced-alignment was implemented and run on sample2. It failed two hard requirements:
 
-**Interfaces:**
-- Produces: `run_final(clip, wav) -> dict` (Transcript-shaped dict) via WhisperX translate + word-align + integrated pyannote. Same output shape as `run_dev`, so downstream is mode-agnostic.
+- **Not English-only:** output was 41% Devanagari (translate did not fully engage).
+- **~67% of the clip dropped:** only 0–15.9 s of a 47.6 s clip survived.
 
-- [ ] **Step 1: write `scripts/asr_worker_final.py`** (runs in `.venv-asr`)
+**Root cause (architectural, not a bug):** WhisperX forced-alignment uses a wav2vec
+aligner that requires the transcript to be in the **same language as the audio**. The
+translate task produces **English text** for **Hindi audio** — there is no English
+audio to align against, so the en aligner drops the segments it cannot align and lets
+untranslated Devanagari leak through.
 
-```python
-"""WhisperX final pass — runs in .venv-asr. Imported by asr_worker.py for mode='final'."""
-import os
-import whisperx
-
-def run_final(clip, wav):
-    device, compute = "cpu", "int8"        # M4: CPU/int8 keeps memory low
-    model = whisperx.load_model("large-v3", device, compute_type=compute, task="translate")
-    audio = whisperx.load_audio(str(wav))
-    result = model.transcribe(audio, batch_size=8)
-    amodel, meta = whisperx.load_align_model(language_code="en", device=device)
-    result = whisperx.align(result["segments"], amodel, meta, audio, device, return_char_alignments=False)
-    dia = whisperx.DiarizationPipeline(use_auth_token=os.environ["HF_TOKEN"], device=device)
-    result = whisperx.assign_word_speakers(dia(audio), result)
-    utts = []
-    for seg in result["segments"]:
-        spk = seg.get("speaker", "SPEAKER_00")
-        words = [{"text": w["word"].strip(),
-                  "start": float(w.get("start", seg["start"])),
-                  "end": float(w.get("end", seg["end"])),
-                  "speaker": w.get("speaker", spk)} for w in seg.get("words", [])]
-        utts.append({"speaker": spk, "text": seg["text"].strip(),
-                     "start": float(seg["start"]), "end": float(seg["end"]), "words": words})
-    return {"clip": clip, "snr": None, "utterances": utts}
-```
-
-- [ ] **Step 2: source-level test** (whisperx can't import in the main pytest env, so assert the contract at source level)
-
-Append to `tests/test_diarize_asr.py`:
-```python
-def test_final_worker_defines_run_final():
-    src = open("scripts/asr_worker_final.py").read()
-    assert "def run_final" in src and "assign_word_speakers" in src
-```
-Run: `... && pytest tests/test_diarize_asr.py -v` → all unit tests PASS.
-
-- [ ] **Step 3: integration on sample2 (final)** (downloads WhisperX large-v3 ~3GB + wav2vec aligner)
-
-`cd /Users/amit/Personal/Atyx && source .venv/bin/activate && python -m src.enhance sample2 && python -m src.diarize_asr sample2 final`
-Expected: writes `data/work/sample2.transcript.json` (final mode), validates against `Transcript`. Compare to `sample2.txt`. If WhisperX API differs from this code, **STOP and report, do not hack.**
-
-- [ ] **Step 4: commit**
-
-```bash
-git add scripts/asr_worker_final.py tests/test_diarize_asr.py
-git commit -m "feat(asr): final-path WhisperX worker in .venv-asr"
-```
-
----
+**Decision:** the single live ASR path is **mlx-whisper `task="translate"`** (`asr_worker.py`),
+which on the same clip gives **100% coverage, 0% Devanagari**. We rely on **segment-level
+grounding** (speaker + segment + quote) — all single-hop Q&A source-tracing needs.
+Word-level timing, if ever required, comes from Whisper's own `word_timestamps`, never
+wav2vec. The "align in source language, then translate the text" redesign is noted as
+future work in `design_note.md §ASR`. `asr_worker_final.py` was deleted; `run(clip)` /
+`asr_worker.py <clip>` is the single path. See commit `53770ce`.
 
 ### Task 9: Transcript-similarity validation (spine acceptance)
 

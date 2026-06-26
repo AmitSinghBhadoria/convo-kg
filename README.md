@@ -15,7 +15,7 @@ pipeline's disk-artifact stage isolation). Three environments:
 | Env | Purpose | Python | Key pins |
 |---|---|---|---|
 | `.venv` (main) | orchestration, contracts, LLM client, graph, Q&A, API — **no torch** | 3.12 | pydantic, openai, fastapi, neo4j, soundfile, librosa |
-| `.venv-asr` | ASR + diarization (WhisperX, pyannote, mlx-whisper) | 3.12 | **torch 2.2.2 · torchaudio 2.2.2 · transformers 4.40.0 · huggingface_hub 0.25.2 · whisperx 3.3.1 · pyannote.audio 3.3.2 · numpy 1.26.4** |
+| `.venv-asr` | ASR (mlx-whisper translate) + diarization (pyannote) | 3.12 | **torch 2.2.2 · torchaudio 2.2.2 · transformers 4.40.0 · huggingface_hub 0.25.2 · whisperx 3.3.1 · pyannote.audio 3.3.2 · numpy 1.26.4** |
 | `.venv-denoise` | DeepFilterNet speech enhancement | 3.11 | **torch 2.0.1 · torchaudio 2.0.2 · deepfilternet 0.5.6** |
 
 Why pinned: the newest `torchaudio` (2.11) removed `AudioMetaData`, breaking pyannote/WhisperX;
