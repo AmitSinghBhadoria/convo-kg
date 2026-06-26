@@ -394,35 +394,43 @@ git commit -m "feat(qa): Cypher-path answer orchestrator with grounded provenanc
 
 **Interfaces:**
 - `FALLBACK_TOP_K = 3`
-- `cosine(u, v) -> float` — pure (hand-rolled; reuse the Task-3-style math, zero-vector safe).
-- `top_k_statements(question_vec, statements_with_vecs, k) -> list[dict]` — pure; rank `[{id,speaker,text,vec}]` by cosine to `question_vec`, return top-k (without the vec).
+- `FALLBACK_MIN_COSINE = 0.6` — **the floor; tune empirically in Step 5** (sensible starting default). When the best top-k cosine is below this, the fallback **declines** and the answer is `found=False`. The no-hallucination guarantee must rest on this SCORE, not on the LLM noticing the quotes are irrelevant.
+- `cosine(u, v) -> float` — pure (hand-rolled; zero-vector safe).
+- `top_k_statements(question_vec, statements_with_vecs, k) -> list[dict]` — pure; rank `[{id,speaker,text,vec}]` by cosine to `question_vec`, return the top-k as `[{id,speaker,text,score}]` (vec stripped, cosine **`score`** added, descending).
+- `fallback_is_confident(top: list[dict], floor: float = FALLBACK_MIN_COSINE) -> bool` — pure; the floor gate. `True` iff `top` is non-empty AND `top[0]["score"] >= floor`.
 - `_statement_embeddings(driver, database, llm) -> list[dict]` — live; load `:Statement {id,speaker,text}`, embed texts via `llm.embed`, **cache** in a module-level dict keyed by statement id (reuse across calls). Returns `[{id,speaker,text,vec}]`.
-- `semantic_fallback(question, driver, database, llm) -> tuple[str, list[Provenance], list[str]]` — embed the question, `top_k_statements`, `compose_answer`-style answer from the quotes; provenance `kind="related"`; node ids `[]`.
-- `answer(...)` — **wire it in:** replace the Task-6 `found=False` branch (no valid cypher after retries, OR zero rows) with the fallback → `QAResult(mode="semantic-fallback", found=True, cypher=<last cypher or None>, provenance=<related>, ...)`. If even the fallback finds nothing relevant (no statements), return `found=False`.
+- `semantic_fallback(question, driver, database, llm) -> tuple[bool, str, list[Provenance], list[str]]` — embed the question, `top_k_statements`; **if not `fallback_is_confident(top)` → return `(False, "", [], [])` (decline on the score)**; else `compose_answer` from the quotes → `(True, answer, [Provenance(kind="related")...], [])`.
+- `answer(...)` — **wire it in:** replace the Task-6 `found=False` branch (no valid cypher after retries, OR zero rows) with `semantic_fallback(...)`. If it declines (or there are no statements) → `QAResult(mode="semantic-fallback", found=False, answer=<honest "couldn't find that in the conversation">, ...)`. Else → `QAResult(mode="semantic-fallback", found=True, cypher=<last cypher or None>, provenance=<related>, ...)`.
 
 - [ ] **Step 1: Write the failing tests (pure).** Append to `tests/test_qa.py`:
 ```python
-from src.qa import cosine, top_k_statements
+from src.qa import cosine, top_k_statements, fallback_is_confident
 
 def test_cosine_basic_and_zero_safe():
     assert cosine([1.0, 0.0], [1.0, 0.0]) == 1.0
     assert cosine([1.0, 0.0], [0.0, 1.0]) == 0.0
     assert cosine([0.0, 0.0], [1.0, 0.0]) == 0.0          # zero-vector safe, no div-by-zero
 
-def test_top_k_statements_ranks_by_cosine():
+def test_top_k_statements_ranks_by_cosine_with_scores():
     stmts = [{"id": "s0", "speaker": "A", "text": "alpha", "vec": [1.0, 0.0]},
              {"id": "s1", "speaker": "B", "text": "beta",  "vec": [0.0, 1.0]},
              {"id": "s2", "speaker": "C", "text": "gamma", "vec": [0.9, 0.1]}]
     top = top_k_statements([1.0, 0.0], stmts, k=2)
     assert [s["id"] for s in top] == ["s0", "s2"]          # closest two, in order
-    assert "vec" not in top[0]                              # vec stripped from output
+    assert "vec" not in top[0] and "score" in top[0]       # vec stripped, cosine score added
+    assert top[0]["score"] == 1.0                          # s0 identical -> cosine 1.0
+
+def test_fallback_is_confident_enforces_floor():
+    assert fallback_is_confident([{"id": "s", "score": 0.9}], floor=0.6) is True
+    assert fallback_is_confident([{"id": "s", "score": 0.4}], floor=0.6) is False  # below floor -> decline
+    assert fallback_is_confident([], floor=0.6) is False                           # empty -> decline
 ```
 
-- [ ] **Step 2: Run, confirm RED.** `pytest tests/test_qa.py -k "cosine or top_k" -v` → FAIL.
+- [ ] **Step 2: Run, confirm RED.** `pytest tests/test_qa.py -k "cosine or top_k or fallback_is_confident" -v` → FAIL.
 
-- [ ] **Step 3: Implement** `cosine`, `top_k_statements`, `_statement_embeddings` (cached), `semantic_fallback`, and wire the fallback into `answer()`.
+- [ ] **Step 3: Implement** `cosine`, `top_k_statements` (with `score`), `fallback_is_confident`, `_statement_embeddings` (cached), `semantic_fallback` (declines below the floor), and wire the fallback into `answer()`.
 
-- [ ] **Step 4: Run, confirm GREEN (pure) + full suite.** `pytest tests/test_qa.py -k "cosine or top_k" -v && pytest -q` → green.
+- [ ] **Step 4: Run, confirm GREEN (pure) + full suite.** `pytest tests/test_qa.py -k "cosine or top_k or fallback_is_confident" -v && pytest -q` → green.
 
 - [ ] **Step 5: Integration acceptance (marked) — fallback rescues zero-row, honest no-answer otherwise.** Append:
 ```python
@@ -439,10 +447,11 @@ def test_answer_falls_back_semantically_for_offscript_question():
 def test_answer_reports_not_found_for_unanswerable():
     from src.qa import answer
     r = answer("What is the capital of France?")               # nothing in this graph/statements
-    assert r.found is False
+    assert r.found is False                                     # MUST decline on the cosine floor
 ```
+**Empirically tune `FALLBACK_MIN_COSINE` in this step (don't trust the starting default):** print the top cosine score for the "capital of France" question AND for a real off-script question (the compounding one). Set the floor BETWEEN them so France declines on the SCORE while the real question clears it, and report both numbers in your task report. `test_answer_reports_not_found_for_unanswerable` must pass because France's top score is below the floor — not because the model happened to be honest that turn.
 Run (LM Studio + Neo4j up): `pytest tests/test_qa.py -m integration -o addopts="" -k "fall_back or not_found" -v`.
-**If the fallback misclassifies (claims found for the France question, or labels related as source), STOP and report — do not hack.**
+**If the fallback misclassifies (claims found for France, labels related as source, or the floor can't separate France from a real off-script question), STOP and report — do not hack.**
 
 - [ ] **Step 6: Commit.**
 ```bash
