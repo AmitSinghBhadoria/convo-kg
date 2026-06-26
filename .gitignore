@@ -111,3 +111,6 @@ dmypy.json
 # Design-tool thumbnails
 .thumbnail
 **/.thumbnail
+
+# Isolated DeepFilterNet denoise venv (torchaudio<2.1)
+.venv-denoise/

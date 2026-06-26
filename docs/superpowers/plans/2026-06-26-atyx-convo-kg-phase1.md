@@ -436,23 +436,62 @@ git commit -m "feat(data): prep_clips builds 16k mono pms/sample2/dev wavs"
 
 ---
 
-### Task 6: `enhance` stage — DeepFilterNet denoise
+### Task 6: `enhance` stage — DeepFilterNet denoise (isolated venv)
+
+> **Architecture note (decided during build):** DeepFilterNet 0.5.6 requires `torchaudio<2.1`, irreconcilable with the ASR stack's torchaudio 2.x. So DeepFilterNet runs in a **separate, pre-built venv** (`.venv-denoise`, Python 3.11, torch 2.0.1) invoked as a **subprocess** — clean dependency isolation, consistent with our disk-artifact stage isolation. The controller has ALREADY created and verified `.venv-denoise` (DeepFilterNet3 loads; `data/raw/dev.wav` → 16 kHz mono confirmed). The README (Phase 6) must document recreating it:
+> ```bash
+> uv venv .venv-denoise --python 3.11
+> uv pip install --python .venv-denoise "torch>=2.0,<2.1" "torchaudio>=2.0,<2.1" deepfilternet soundfile
+> ```
 
 **Files:**
-- Create: `src/enhance.py`, `tests/test_enhance.py`
+- Create: `scripts/denoise_worker.py` (runs in `.venv-denoise`), `src/enhance.py` (main venv), `tests/test_enhance.py`
 
 **Interfaces:**
-- Consumes: `data/raw/<clip>.wav`.
-- Produces: `run(clip:str) -> Path` writing `data/work/<clip>.clean.wav` (16 kHz mono). CLI: `python -m src.enhance <clip>`.
+- Consumes: `data/raw/<clip>.wav`; the pre-built `.venv-denoise`.
+- Produces: `run(clip:str) -> Path` writing `data/work/<clip>.clean.wav` (16 kHz mono). CLI: `python -m src.enhance <clip>`. Worker CLI: `python scripts/denoise_worker.py <in.wav> <out.wav>`.
 
-- [ ] **Step 1: Write the failing test** — `tests/test_enhance.py`
+- [ ] **Step 1: Write the denoise worker** — `scripts/denoise_worker.py` (this runs inside `.venv-denoise`, NOT the main env)
+
+```python
+"""DeepFilterNet denoise worker — runs in the ISOLATED .venv-denoise (torchaudio<2.1),
+which the main env cannot host (DeepFilterNet needs torchaudio 1.x APIs; the ASR stack needs 2.x).
+Invoked as a subprocess by src/enhance.py.
+Usage: python scripts/denoise_worker.py <in.wav> <out_16k_mono.wav>
+"""
+import sys, warnings
+warnings.filterwarnings("ignore")
+import soundfile as sf
+import torchaudio
+from df.enhance import init_df, enhance, load_audio
+
+def main(src: str, dst: str) -> None:
+    model, df_state, _ = init_df()                  # loads DeepFilterNet3 (cached after first run)
+    audio, _ = load_audio(src, sr=df_state.sr())    # 48 kHz
+    out = enhance(model, df_state, audio)           # torch tensor @ 48 kHz
+    if out.dim() == 1:
+        out = out.unsqueeze(0)
+    out16 = torchaudio.functional.resample(out, df_state.sr(), 16000).squeeze(0).cpu().numpy()
+    sf.write(dst, out16, 16000)
+
+if __name__ == "__main__":
+    main(sys.argv[1], sys.argv[2])
+```
+
+- [ ] **Step 2: Write the tests** — `tests/test_enhance.py` (a fast unit test for the missing-venv guard + an integration test for the real denoise)
 
 ```python
 import numpy as np, soundfile as sf, pytest
 from pathlib import Path
 
+def test_run_raises_when_denoise_venv_missing(monkeypatch, tmp_path):
+    import src.enhance as e
+    monkeypatch.setattr(e, "DENOISE_PY", tmp_path / "no_such_python")
+    with pytest.raises(RuntimeError, match="denoise venv"):
+        e.run("dev")
+
 @pytest.mark.integration
-def test_enhance_produces_clean_wav(tmp_path):
+def test_enhance_produces_clean_wav():
     from src.enhance import run
     out = run("dev")
     assert Path(out).exists()
@@ -460,35 +499,38 @@ def test_enhance_produces_clean_wav(tmp_path):
     assert sr == 16000 and y.ndim == 1 and np.isfinite(y).all()
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [ ] **Step 3: Run to verify the unit test fails first**
 
-Run: `uv run pytest tests/test_enhance.py -v -m integration`
-Expected: FAIL — `ModuleNotFoundError: src.enhance`.
+Run: `cd /Users/amit/Personal/Atyx && source .venv/bin/activate && pytest tests/test_enhance.py::test_run_raises_when_denoise_venv_missing -v`
+Expected: FAIL — `ModuleNotFoundError: src.enhance` (module not written yet).
 
-- [ ] **Step 3: Write `src/enhance.py`**
+- [ ] **Step 4: Write `src/enhance.py`** (main venv — subprocess to the worker)
 
 ```python
-"""Speech enhancement (denoise) with DeepFilterNet. Always runs."""
-import sys
+"""Speech enhancement (denoise) stage — always runs.
+DeepFilterNet runs in an isolated venv (.venv-denoise, torchaudio<2.1) because it is
+incompatible with the ASR stack's torchaudio 2.x; we invoke it as a subprocess and
+capture its output so the main test run stays pristine.
+"""
+import subprocess, sys
 from pathlib import Path
-import soundfile as sf
-from df.enhance import init_df, enhance, load_audio, save_audio
 
-WORK = Path("data/work"); WORK.mkdir(parents=True, exist_ok=True)
+ROOT = Path(__file__).resolve().parent.parent
+WORK = ROOT / "data" / "work"
+DENOISE_PY = ROOT / ".venv-denoise" / "bin" / "python"
+WORKER = ROOT / "scripts" / "denoise_worker.py"
 
 def run(clip: str) -> Path:
-    src = Path("data/raw") / f"{clip}.wav"
+    src = ROOT / "data" / "raw" / f"{clip}.wav"
     dst = WORK / f"{clip}.clean.wav"
-    model, df_state, _ = init_df()                 # downloads weights on first use
-    audio, _ = load_audio(str(src), sr=df_state.sr())
-    enhanced = enhance(model, df_state, audio)
-    save_audio(str(dst), enhanced, df_state.sr())
-    # normalize back to 16k mono for the ASR stage
-    y, sr = sf.read(str(dst))
-    if sr != 16000:
-        import librosa
-        y = librosa.resample(y.mean(axis=1) if y.ndim > 1 else y, orig_sr=sr, target_sr=16000)
-        sf.write(str(dst), y, 16000)
+    WORK.mkdir(parents=True, exist_ok=True)
+    if not Path(DENOISE_PY).exists():
+        raise RuntimeError(
+            f"denoise venv missing at {DENOISE_PY} — create it (see README 'denoise setup')")
+    proc = subprocess.run([str(DENOISE_PY), str(WORKER), str(src), str(dst)],
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(f"denoise worker failed (rc={proc.returncode}):\n{proc.stderr[-2000:]}")
     print("wrote", dst)
     return dst
 
@@ -496,16 +538,18 @@ if __name__ == "__main__":
     run(sys.argv[1])
 ```
 
-- [ ] **Step 4: Run test to verify pass**
+- [ ] **Step 5: Run tests to verify pass**
 
-Run: `uv run pytest tests/test_enhance.py -v -m integration`
-Expected: PASS. (First run downloads DeepFilterNet weights.)
+Unit (fast): `cd /Users/amit/Personal/Atyx && source .venv/bin/activate && pytest tests/test_enhance.py -v`
+Expected: the guard test PASSES; the integration test is deselected.
+Integration (real denoise via subprocess to `.venv-denoise`): `... && pytest tests/test_enhance.py -v -m integration`
+Expected: PASS — `data/work/dev.clean.wav` is 16 kHz mono, finite. Output pristine (worker stdout/stderr is captured, not leaked).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/enhance.py tests/test_enhance.py
-git commit -m "feat(enhance): DeepFilterNet denoise stage -> data/work/<clip>.clean.wav"
+git add scripts/denoise_worker.py src/enhance.py tests/test_enhance.py
+git commit -m "feat(enhance): DeepFilterNet denoise via isolated-venv subprocess -> 16k mono clean wav"
 ```
 
 ---
