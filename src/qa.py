@@ -157,14 +157,19 @@ def build_cypher_prompt(
         "2. Use ONLY these clauses: MATCH, WHERE, RETURN, ORDER BY, LIMIT.\n"
         "   Absolutely FORBIDDEN: CREATE, MERGE, DELETE, SET, REMOVE, DROP,\n"
         "   DETACH, FOREACH, LOAD, CALL (unless db.labels / db.relationshipTypes).\n"
-        "3. When the answer requires traversing a fact relationship (any edge in\n"
-        "   the graph), RETURN that relationship's source_statement_id aliased\n"
-        "   as provenance so the caller can trace the answer back to its source.\n"
+        "3. When the answer requires traversing a fact relationship, bind the\n"
+        "   relationship to a variable and RETURN its source_statement_id aliased\n"
+        "   as provenance, e.g.:\n"
+        "     MATCH (a)-[r:SOME_REL]->(b) RETURN r.source_statement_id AS provenance, a.id, b.id\n"
+        "   Do NOT alias a node property (such as a Statement's id) as provenance.\n"
         "4. Also RETURN the relevant node id(s) so individual nodes can be fetched.\n"
         "5. Prefer single-hop queries; use multi-hop only if the question\n"
         "   strictly requires it.\n"
         "6. Output ONLY valid Cypher inside the JSON field 'cypher'.\n"
         "   Do NOT include explanations or markdown fences.\n"
+        "7. Use ONLY the node labels and relationship types that appear in the\n"
+        "   schema below. Do NOT invent labels or relationship types that are\n"
+        "   not listed there.\n"
     )
 
     user_parts = [

@@ -54,7 +54,7 @@ def test_introspect_schema_against_live_graph():
 # Task 4: Cypher generation
 # ---------------------------------------------------------------------------
 
-from src.qa import build_cypher_prompt, generate_cypher
+from src.qa import build_cypher_prompt, generate_cypher, CYPHER_SCHEMA
 
 
 def test_cypher_prompt_carries_schema_and_readonly_and_provenance_rules():
@@ -64,6 +64,7 @@ def test_cypher_prompt_carries_schema_and_readonly_and_provenance_rules():
     assert "read-only" in low or "read only" in low
     assert "source_statement_id" in (system + user)         # provenance rule present
     assert "create" in low and "delete" in low              # forbids writes explicitly
+    assert "merge" in low and "set" in low and "remove" in low  # full forbidden list
 
 
 def test_cypher_prompt_includes_prior_error_on_retry():
@@ -73,7 +74,9 @@ def test_cypher_prompt_includes_prior_error_on_retry():
 
 def test_generate_cypher_returns_cypher_field():
     class FakeLLM:
-        def chat_json(self, system, user, schema): return {"cypher": "MATCH (n) RETURN n"}
+        def chat_json(self, system, user, schema):
+            assert schema == CYPHER_SCHEMA, f"Expected CYPHER_SCHEMA, got {schema!r}"
+            return {"cypher": "MATCH (n) RETURN n"}
     assert generate_cypher("q", "S", FakeLLM()) == "MATCH (n) RETURN n"
 
 
