@@ -203,11 +203,14 @@ def run(clip: str) -> dict:
     Database taken from NEO4J_DATABASE env var (default: 'neo4j').
     Prints counts and returns them.
     """
+    from src.config import load_config
     load_dotenv()
     database = os.getenv("NEO4J_DATABASE", "neo4j")
 
-    facts_path = Path(f"{clip}.facts.json")
-    transcript_path = Path(f"{clip}.transcript.json")
+    # Read artifacts from the same work dir extract.py writes them to (cfg.paths.work).
+    work = Path(load_config().paths.work)
+    facts_path = work / f"{clip}.facts.json"
+    transcript_path = work / f"{clip}.transcript.json"
 
     if not facts_path.exists():
         raise FileNotFoundError(f"Facts file not found: {facts_path}")

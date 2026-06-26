@@ -58,3 +58,12 @@ def test_upsert_empty_factset_does_not_crash():
         assert upsert(fs, t, drv, database=db) == {"statements": 1, "entities": 0, "facts": 0}
     finally:
         drv.close()
+
+
+def test_run_resolves_artifacts_under_data_work():
+    """Regression: run() must look in cfg.paths.work (data/work), not the bare CWD.
+    The artifact check happens before any Neo4j connection, so this needs no live DB."""
+    import pytest
+    from src.graph import run
+    with pytest.raises(FileNotFoundError, match=r"data/work"):
+        run("definitely_missing_clip_zzz")
