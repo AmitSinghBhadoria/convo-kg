@@ -146,3 +146,31 @@ def test_run_read_refuses_writes_at_db_level():
             run_read(drv, db, "CREATE (z:ZzzQaTest {id:'x'}) RETURN z")
     finally:
         drv.close()
+
+
+# ---------------------------------------------------------------------------
+# Task 6: infer_hops (pure), compose_answer, answer
+# ---------------------------------------------------------------------------
+
+from src.qa import infer_hops
+
+def test_infer_hops_counts_relationship_patterns():
+    assert infer_hops("MATCH (a)-[r]->(b) RETURN a") == "single"
+    assert infer_hops("MATCH (a)-[r1]->(b)-[r2]->(c) RETURN a") == "multi"
+    assert infer_hops("MATCH (n) RETURN n") == "single"
+
+
+@pytest.mark.integration
+def test_answer_single_hop_is_grounded_with_source_provenance():
+    from src.qa import answer
+    r = answer("What strategies help you get rich before 30?")
+    assert r.found and r.mode == "cypher"
+    assert any(p.kind == "source" for p in r.provenance)
+    assert all(p.statement_id.startswith("stmt:sample2:") for p in r.provenance)
+
+@pytest.mark.integration
+def test_answer_multi_hop_business_ownership_chain():
+    from src.qa import answer
+    r = answer("How does business ownership help you get rich before 30?")
+    assert r.found and r.mode == "cypher" and r.hops == "multi"
+    assert any(p.kind == "source" for p in r.provenance)

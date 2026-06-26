@@ -318,3 +318,266 @@ def resolve_provenance(
                     )
                 )
     return provenance
+
+
+# ---------------------------------------------------------------------------
+# Task 6: Cypher-path orchestrator (compose_answer, infer_hops, answer)
+# ---------------------------------------------------------------------------
+
+import os
+from typing import Literal
+
+from src.contracts import QAResult
+
+ANSWER_SCHEMA: dict = {
+    "type": "object",
+    "properties": {"answer": {"type": "string"}},
+    "required": ["answer"],
+    "additionalProperties": False,
+}
+
+MAX_RETRIES = 2
+
+
+def compose_answer(
+    question: str,
+    rows: list[dict],
+    provenance: list[Provenance],
+    llm,
+) -> str:
+    """Compose a grounded English answer from graph rows and provenance quotes.
+
+    Instructs the LLM to use ONLY the provided rows and source statements;
+    if they do not contain the answer, say so plainly (do not invent).
+    """
+    system = (
+        "You are a factual question-answering assistant.\n"
+        "Answer in English using ONLY the provided graph rows and the quoted "
+        "source statements below.\n"
+        "If they do not contain the answer, say so plainly — do not invent anything."
+    )
+    prov_lines = "\n".join(
+        f'  [{p.statement_id}] {p.speaker}: "{p.text}"'
+        for p in provenance
+    )
+    user = (
+        f"Question: {question}\n\n"
+        f"Graph rows:\n{rows}\n\n"
+        f"Source statements:\n{prov_lines if prov_lines else '(none)'}"
+    )
+    result = llm.chat_json(system, user, ANSWER_SCHEMA)
+    return result["answer"].strip()
+
+
+def infer_hops(cypher: str) -> Literal["single", "multi"]:
+    """Return 'multi' if cypher traverses >=2 relationship patterns, else 'single'.
+
+    Pure function. Counts occurrences of '-[' as a proxy for relationship
+    patterns in the query.
+    """
+    return "multi" if cypher.count("-[") >= 2 else "single"
+
+
+def answer(
+    question: str,
+    llm=None,
+    driver=None,
+    database: str | None = None,
+) -> QAResult:
+    """Orchestrate the full Cypher Q&A path.
+
+    Sequence: introspect schema → retry loop (1 + MAX_RETRIES) →
+    generate_cypher → is_read_only guard → explain_ok check →
+    run_read → resolve provenance → compose_answer → QAResult.
+
+    If no valid Cypher is produced after all retries, OR if the query
+    returns no rows, returns a found=False placeholder (Task 7 replaces
+    this branch with the semantic fallback).
+
+    Owns the driver lifecycle when driver is None (connect + close).
+    """
+    from src.config import load_config
+    from src.llm import LLM
+
+    if llm is None:
+        llm = LLM(load_config().llm)
+    if database is None:
+        database = os.environ.get("NEO4J_DATABASE", "neo4j")
+
+    own_driver = driver is None
+    if own_driver:
+        from src.graph import connect
+        driver = connect()
+
+    try:
+        schema = introspect_schema(driver, database)
+
+        # Augment schema with live relationship direction examples so the LLM
+        # knows which node labels each relationship type connects and in which
+        # direction.  This prevents the model from inventing wrong directions
+        # (e.g. Statement→Entity instead of Entity→Entity for fact edges).
+        # Collect known node labels for label-guard below.
+        _known_labels: set[str] = set()
+        try:
+            _label_rows = run_read(
+                driver, database,
+                "CALL db.labels() YIELD label RETURN label"
+            )
+            _known_labels = {r["label"] for r in _label_rows}
+        except Exception:
+            pass
+
+        try:
+            _rel_samples = run_read(
+                driver, database,
+                "MATCH (a)-[r]->(b) "
+                "RETURN labels(a)[0] AS fl, a.type AS ft, "
+                "       type(r) AS rt, "
+                "       labels(b)[0] AS tl, b.type AS tt "
+                "LIMIT 30"
+            )
+            _seen: set[tuple] = set()
+            _dir_lines: list[str] = []
+            for _row in _rel_samples:
+                _key = (
+                    _row.get("fl"), _row.get("ft") or "",
+                    _row.get("rt"),
+                    _row.get("tl"), _row.get("tt") or "",
+                )
+                if _key not in _seen:
+                    _seen.add(_key)
+                    _from = (
+                        f":{_row['fl']}{{type:'{_row['ft']}'}}"
+                        if _row.get("ft") else f":{_row['fl']}"
+                    )
+                    _to = (
+                        f":{_row['tl']}{{type:'{_row['tt']}'}}"
+                        if _row.get("tt") else f":{_row['tl']}"
+                    )
+                    _dir_lines.append(f"  ({_from})-[:{_row['rt']}]->({_to})")
+            if _dir_lines:
+                schema += (
+                    "\n\nRelationship directions (sampled from live graph — "
+                    "use ONLY these directions):\n"
+                    + "\n".join(_dir_lines)
+                )
+
+            # Append entity name samples so the model can reference actual values.
+            _ent_samples = run_read(
+                driver, database,
+                "MATCH (e:Entity) "
+                "RETURN e.type AS type, e.name AS name "
+                "ORDER BY e.type, e.name "
+                "LIMIT 30"
+            )
+            if _ent_samples:
+                _ent_by_type: dict[str, list[str]] = {}
+                for _e in _ent_samples:
+                    _ent_by_type.setdefault(_e["type"], []).append(_e["name"])
+                _ent_lines = [
+                    f"  {_t}: {_names}"
+                    for _t, _names in _ent_by_type.items()
+                ]
+                schema += (
+                    "\n\nEntity names in the graph (use these to filter by name):\n"
+                    + "\n".join(_ent_lines)
+                )
+
+            # Critical clarification: provenance is a STRING property on fact
+            # edges (not a link to/from Statement nodes). Fact edges connect
+            # Entity nodes only.
+            _labels_str = ", ".join(sorted(_known_labels)) if _known_labels else "Entity, Statement, Speaker"
+            schema += (
+                "\n\nCRITICAL SCHEMA RULES — violating these causes empty results:\n"
+                f"1. The ONLY valid Neo4j node labels are: {_labels_str}.\n"
+                "   WealthStrategy, FinancialGoal, AssetClass, MonetaryAmount, TimePeriod "
+                "are NOT labels — they are VALUES of the 'type' property on :Entity nodes.\n"
+                "   CORRECT: (a:Entity {type:'WealthStrategy'})  "
+                "WRONG: (a:WealthStrategy)\n"
+                "2. Fact edges (ACHIEVES_GOAL, HAS_STRATEGY, etc.) connect "
+                "Entity nodes to Entity nodes — NOT to Statement or Speaker nodes.\n"
+                "3. source_statement_id is a STRING PROPERTY on the fact edge. "
+                "Return it as: RETURN r.source_statement_id AS provenance\n"
+                "4. Correct single-hop example: "
+                "MATCH (a:Entity {type:'WealthStrategy'})-[r:ACHIEVES_GOAL]->"
+                "(b:Entity {type:'FinancialGoal'}) "
+                "RETURN r.source_statement_id AS provenance, a.id, a.name\n"
+                "5. Correct multi-hop example: "
+                "MATCH (a:Entity)-[r1:HAS_STRATEGY]->(b:Entity {type:'WealthStrategy'})"
+                "-[r2:ACHIEVES_GOAL]->(c:Entity {type:'FinancialGoal'}) "
+                "RETURN r1.source_statement_id AS provenance, a.id, a.name, b.id, b.name"
+            )
+        except Exception:
+            pass  # Best-effort; fallback to base schema
+
+        last_cypher: str | None = None
+        error: str | None = None
+        valid_cypher: str | None = None
+
+        for _ in range(1 + MAX_RETRIES):
+            cypher = generate_cypher(question, schema, llm, error)
+            last_cypher = cypher
+            if not is_read_only(cypher):
+                error = f"Query contains a disallowed write clause: {cypher!r}"
+                continue
+            ok, err = explain_ok(driver, database, cypher)
+            if not ok:
+                error = err
+                continue
+            # Label guard: explain_ok passes even for non-existent labels
+            # (they just return 0 rows).  Catch them here so the retry loop
+            # can feed back a corrective error message.
+            if _known_labels:
+                _used = set(re.findall(r'\(\w*:(\w+)', cypher))
+                _bad = _used - _known_labels
+                if _bad:
+                    error = (
+                        f"Query uses undefined node labels: {sorted(_bad)}. "
+                        f"The ONLY valid labels are {sorted(_known_labels)}. "
+                        "Entity sub-types (WealthStrategy, FinancialGoal, etc.) "
+                        "are NOT labels — use :Entity {type:'...'} syntax instead."
+                    )
+                    continue
+            # Valid Cypher found
+            valid_cypher = cypher
+            break
+
+        if valid_cypher is None:
+            return QAResult(
+                question=question,
+                answer="Could not find an answer: failed to produce a valid Cypher query.",
+                mode="cypher",
+                found=False,
+                cypher=last_cypher,
+            )
+
+        rows = run_read(driver, database, valid_cypher)
+
+        if not rows:
+            return QAResult(
+                question=question,
+                answer="Could not find an answer: the query returned no results.",
+                mode="cypher",
+                found=False,
+                cypher=valid_cypher,
+            )
+
+        prov_ids = extract_provenance_ids(rows)
+        prov = resolve_provenance(driver, database, prov_ids)
+        node_ids = extract_node_ids(rows)
+        ans = compose_answer(question, rows, prov, llm)
+
+        return QAResult(
+            question=question,
+            answer=ans,
+            mode="cypher",
+            found=True,
+            cypher=valid_cypher,
+            rows=rows,
+            provenance=prov,
+            graph_node_ids=node_ids,
+            hops=infer_hops(valid_cypher),
+        )
+    finally:
+        if own_driver:
+            driver.close()
