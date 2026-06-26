@@ -15,3 +15,8 @@ def test_run_raises_without_asr_venv(monkeypatch, tmp_path):
     monkeypatch.setattr(d, "ASR_PY", tmp_path / "no_python")
     with pytest.raises(RuntimeError, match="audio venv"):
         d.run("dev")
+
+
+def test_final_worker_defines_run_final():
+    src = open("scripts/asr_worker_final.py").read()
+    assert "def run_final" in src and "assign_word_speakers" in src
