@@ -156,10 +156,15 @@ end-to-end run.
 
 ## 10. Q&A (`qa.py`) — schema-aware text-to-Cypher with fallback
 1. **Introspect the live Neo4j schema** (labels, relationship types, property keys) and inject it into the Cypher-generation prompt — Q&A adapts to whatever ontology was induced.
-2. LLM generates Cypher → **validate via `EXPLAIN`** → on error, **retry** with the error fed back.
-3. Run the query; LLM composes an English answer **grounded in the returned rows** (with provenance).
-4. **Embedding fallback**: if no clean Cypher resolves, retrieve relevant statements by semantic similarity and answer from those.
-5. **Scope:** single-hop is the v1 hero path; the graph is multi-hop-ready and one worked multi-hop example (the PMS-vs-MF *regulation comparison*) is demonstrated.
+2. **Generate Cypher, read-only (defense in depth on the one surface where the LLM touches the DB):**
+   - **First gate — write-clause reject:** before running anything, reject any generated Cypher containing a write clause (`CREATE/MERGE/DELETE/SET/REMOVE/DROP/CALL{…}` write procs).
+   - **Validate via `EXPLAIN`** → on error, **retry ×2** feeding the error text back into the prompt.
+   - **Hard backstop:** execute in a **read-only transaction** (Neo4j read access mode), so a write that slips the text check is refused by the database itself.
+3. Run the query; the LLM composes an English answer **grounded in the returned rows**.
+4. **Provenance — the hero feature, causally linked to the answer's fact edge:** the Cypher-gen prompt is instructed to `RETURN r.source_statement_id` whenever the answer traverses a fact edge; `qa.py` joins those ids to `:Statement` for the **verbatim quote + speaker**. Each provenance item carries a `kind`: **`"source"`** (causal, edge-level `source_statement_id`) vs **`"related"`** (entity-linked statements, used only when the answer has no edge-level source — e.g. node-property/aggregation queries). The UI labels them honestly as "source" vs "related context"; we never claim precise grounding we don't have. Innermost guard: if no source resolves, say so — don't crash.
+5. **Semantic fallback** (`mode='semantic-fallback'`): engages when Cypher still fails `EXPLAIN` after retries **OR runs but returns zero rows** (zero-rows on valid Cypher is the common, demo-threatening case). Embed the question vs **cached `:Statement` text embeddings** (existing endpoint, torch-free main env), take top-3 by cosine, the LLM answers from those quotes. Its provenance is `kind="related"` (semantically-similar, not a causal source). **Build order: make the Cypher path solid and answering the demo questions with real provenance FIRST, then layer this fallback.**
+6. **Result contract — `QAResult` (Pydantic, locked as the Phase 5 frontend contract):** `question`, `answer` (English), `mode` (`'cypher'|'semantic-fallback'`), `cypher` (`str|None`), `rows`, `provenance: list[{statement_id, speaker, text, kind}]`, `graph_node_ids` (nodes behind the answer, for the node-highlight UI), `found: bool` (honest no-answer degradation instead of an empty render), `hops` (`'single'|'multi'`).
+7. **Scope:** single-hop is the v1 hero path; the graph is multi-hop-ready. One worked **multi-hop** example, fit to the *actual* induced sample2 graph (verified to exist, not retrofitted): **"How does business ownership help you get rich before 30?"** → `(business ownership)-[:HAS_STRATEGY]->(Do your own business)-[:ACHIEVES_GOAL]->(get rich before 30)` (asset → strategy → goal, 2 hops, grounded in `stmt:sample2:0`).
 
 ## 11. Robustness & graceful degradation
 - **Source-grounding is the load-bearing anti-hallucination guarantee** — every fact must cite the transcript statement it came from; structurally prevents fabrication and makes facts auditable.
