@@ -203,3 +203,118 @@ def generate_cypher(
     system, user = build_cypher_prompt(question, schema_text, error)
     result = llm.chat_json(system, user, CYPHER_SCHEMA)
     return result["cypher"].strip()
+
+
+# ---------------------------------------------------------------------------
+# Task 5: execution backstop + provenance resolution
+# ---------------------------------------------------------------------------
+
+from src.contracts import Provenance
+
+
+def explain_ok(driver, database: str, cypher: str) -> tuple[bool, str | None]:
+    """Plan *cypher* via ``EXPLAIN`` inside a read transaction.
+
+    Returns ``(True, None)`` if the query plans without error, or
+    ``(False, <error message>)`` if the database raises during planning.
+    The EXPLAIN is run inside a read-access-mode transaction so no mutations
+    can occur even if the query itself contains write clauses.
+    """
+    explain_cypher = f"EXPLAIN {cypher}"
+
+    def _run(tx):
+        list(tx.run(explain_cypher))
+
+    try:
+        with driver.session(database=database) as session:
+            session.execute_read(_run)
+        return True, None
+    except Exception as exc:
+        return False, str(exc)
+
+
+def run_read(driver, database: str, cypher: str) -> list[dict]:
+    """Execute *cypher* in a read-access-mode transaction and return rows.
+
+    Uses ``session.execute_read`` — Neo4j enforces read-only access at the
+    database level, so any write clause will raise without reaching the graph.
+    This is the hard backstop that complements the text-level ``is_read_only``
+    guard applied by the orchestrator upstream.
+
+    Each neo4j Record is converted to a plain ``dict`` via ``record.data()``.
+    """
+    def _run(tx):
+        return [record.data() for record in tx.run(cypher)]
+
+    with driver.session(database=database) as session:
+        return session.execute_read(_run)
+
+
+def extract_node_ids(rows: list[dict]) -> list[str]:
+    """Return distinct node ``id`` values from *rows*, order-preserving.
+
+    A value is "node-shaped" if it is a ``dict`` containing a string ``"id"``
+    key.  Plain scalars and dicts without an ``"id"`` key are ignored.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for row in rows:
+        for value in row.values():
+            if isinstance(value, dict) and "id" in value and isinstance(value["id"], str):
+                node_id = value["id"]
+                if node_id not in seen:
+                    seen.add(node_id)
+                    result.append(node_id)
+    return result
+
+
+def extract_provenance_ids(rows: list[dict]) -> list[str]:
+    """Return distinct non-None statement ids from *rows*, order-preserving.
+
+    Collects ids found under the key ``"provenance"`` or any key ending with
+    ``"source_statement_id"`` (e.g. ``"r.source_statement_id"``).  ``None``
+    values are skipped.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for row in rows:
+        for key, value in row.items():
+            if key == "provenance" or key.endswith("source_statement_id"):
+                if value is not None:
+                    sid = str(value)
+                    if sid not in seen:
+                        seen.add(sid)
+                        result.append(sid)
+    return result
+
+
+def resolve_provenance(
+    driver, database: str, statement_ids: list[str]
+) -> list[Provenance]:
+    """Fetch :Statement nodes for *statement_ids* and return Provenance records.
+
+    For each id, runs a parameterised ``MATCH`` — the id is passed as a query
+    parameter, never string-interpolated.  Ids that match no :Statement node
+    are silently skipped.
+    """
+    provenance: list[Provenance] = []
+    with driver.session(database=database) as session:
+        for sid in statement_ids:
+            records = session.execute_read(
+                lambda tx, _id=sid: list(
+                    tx.run(
+                        "MATCH (s:Statement {id: $id}) RETURN s.text AS text, s.speaker AS speaker",
+                        id=_id,
+                    )
+                )
+            )
+            for record in records:
+                provenance.append(
+                    Provenance(
+                        statement_id=sid,
+                        speaker=record["speaker"],
+                        text=record["text"],
+                        kind="source",
+                    )
+                )
+    return provenance

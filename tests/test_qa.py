@@ -95,3 +95,54 @@ def test_generate_cypher_is_readonly_against_live_schema():
         drv.close()
     assert is_read_only(cy), f"generated non-read-only Cypher:\n{cy}"
     assert "RETURN" in cy.upper()                            # produced an actual query
+
+
+# ---------------------------------------------------------------------------
+# Task 5: pure helpers — extract_node_ids, extract_provenance_ids
+# ---------------------------------------------------------------------------
+
+from src.qa import extract_node_ids, extract_provenance_ids
+
+def test_extract_provenance_ids_collects_distinct_nonnull():
+    rows = [{"provenance": "stmt:sample2:0", "x": 1},
+            {"provenance": "stmt:sample2:0"},          # dup
+            {"provenance": None},                       # ignored
+            {"r.source_statement_id": "stmt:sample2:1"}]
+    assert extract_provenance_ids(rows) == ["stmt:sample2:0", "stmt:sample2:1"]
+
+def test_extract_node_ids_collects_distinct():
+    rows = [{"a": {"id": "entity:pms", "name": "PMS"}, "b": {"id": "entity:aif"}},
+            {"a": {"id": "entity:pms"}}]
+    assert extract_node_ids(rows) == ["entity:pms", "entity:aif"]
+
+
+# ---------------------------------------------------------------------------
+# Task 5: integration tests (marked) — live Neo4j
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+def test_run_read_executes_and_resolves_provenance():
+    import os
+    from src.graph import connect
+    from src.qa import run_read, resolve_provenance, extract_provenance_ids
+    drv = connect(); db = os.environ.get("NEO4J_DATABASE", "neo4j")
+    try:
+        rows = run_read(drv, db, "MATCH (a:Entity)-[r]->(b:Entity) "
+                                 "RETURN a.id AS a, r.source_statement_id AS provenance LIMIT 5")
+        assert rows
+        prov = resolve_provenance(drv, db, extract_provenance_ids(rows))
+        assert prov and all(p.kind == "source" and p.text for p in prov)
+    finally:
+        drv.close()
+
+@pytest.mark.integration
+def test_run_read_refuses_writes_at_db_level():
+    import os, pytest
+    from src.graph import connect
+    from src.qa import run_read
+    drv = connect(); db = os.environ.get("NEO4J_DATABASE", "neo4j")
+    try:
+        with pytest.raises(Exception):                       # Neo4j read tx refuses the write
+            run_read(drv, db, "CREATE (z:ZzzQaTest {id:'x'}) RETURN z")
+    finally:
+        drv.close()
