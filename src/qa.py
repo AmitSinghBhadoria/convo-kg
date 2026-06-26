@@ -510,6 +510,157 @@ def augment_schema(
     return schema, known_labels
 
 
+# ---------------------------------------------------------------------------
+# Task 7: Semantic fallback — cosine, top_k_statements, fallback_is_confident,
+#          _statement_embeddings (cached), semantic_fallback
+# ---------------------------------------------------------------------------
+
+FALLBACK_TOP_K: int = 3
+FALLBACK_MIN_COSINE: float = 0.15  # empirically tuned: France=0.0051, compounding=0.3499 → floor at 0.15
+
+# Module-level embedding cache: statement_id -> {id, speaker, text, vec}
+_EMBEDDING_CACHE: dict[str, dict] = {}
+
+
+def cosine(u: list[float], v: list[float]) -> float:
+    """Compute cosine similarity between two vectors.
+
+    Zero-vector safe: returns 0.0 if either vector has zero norm (no div-by-zero).
+    """
+    dot = sum(a * b for a, b in zip(u, v))
+    norm_u = sum(a * a for a in u) ** 0.5
+    norm_v = sum(b * b for b in v) ** 0.5
+    if norm_u == 0.0 or norm_v == 0.0:
+        return 0.0
+    return dot / (norm_u * norm_v)
+
+
+def top_k_statements(
+    question_vec: list[float],
+    statements_with_vecs: list[dict],
+    k: int,
+) -> list[dict]:
+    """Rank statements by cosine similarity to the question vector.
+
+    Args:
+        question_vec: Embedding of the question.
+        statements_with_vecs: List of dicts with keys {id, speaker, text, vec}.
+        k: Number of top results to return.
+
+    Returns:
+        Top-k dicts with keys {id, speaker, text, score} — vec stripped, cosine
+        score added — sorted descending by score.
+    """
+    scored = []
+    for stmt in statements_with_vecs:
+        score = cosine(question_vec, stmt["vec"])
+        scored.append({
+            "id": stmt["id"],
+            "speaker": stmt["speaker"],
+            "text": stmt["text"],
+            "score": score,
+        })
+    scored.sort(key=lambda s: s["score"], reverse=True)
+    return scored[:k]
+
+
+def fallback_is_confident(
+    top: list[dict],
+    floor: float = FALLBACK_MIN_COSINE,
+) -> bool:
+    """Return True iff the best top-k result clears the cosine floor.
+
+    The no-hallucination guarantee rests on this score — never on LLM judgment.
+    """
+    return bool(top) and top[0]["score"] >= floor
+
+
+def _statement_embeddings(driver, database: str, llm) -> list[dict]:
+    """Load all :Statement {id,speaker,text} nodes and embed their texts.
+
+    Results are cached in the module-level _EMBEDDING_CACHE keyed by
+    statement id — repeated answer() calls reuse the cache without
+    re-embedding.
+
+    Returns a list of {id, speaker, text, vec} dicts.
+    """
+    global _EMBEDDING_CACHE
+
+    # Load all statement nodes
+    with driver.session(database=database) as session:
+        records = session.execute_read(
+            lambda tx: list(
+                tx.run(
+                    "MATCH (s:Statement) RETURN s.id AS id, s.speaker AS speaker, s.text AS text"
+                )
+            )
+        )
+
+    # Identify which statements need embedding (not yet cached)
+    uncached = [
+        {"id": r["id"], "speaker": r["speaker"], "text": r["text"]}
+        for r in records
+        if r["id"] not in _EMBEDDING_CACHE
+    ]
+
+    if uncached:
+        texts = [s["text"] for s in uncached]
+        vecs = llm.embed(texts)
+        for stmt, vec in zip(uncached, vecs):
+            _EMBEDDING_CACHE[stmt["id"]] = {
+                "id": stmt["id"],
+                "speaker": stmt["speaker"],
+                "text": stmt["text"],
+                "vec": vec,
+            }
+
+    # Return all statements (cached + freshly embedded), preserving record order
+    all_ids = {r["id"] for r in records}
+    return [v for k, v in _EMBEDDING_CACHE.items() if k in all_ids]
+
+
+def semantic_fallback(
+    question: str,
+    driver,
+    database: str,
+    llm,
+) -> tuple[bool, str, list["Provenance"], list[str]]:
+    """Attempt a cosine-similarity answer from cached :Statement embeddings.
+
+    The no-hallucination guarantee rests on the cosine floor
+    (FALLBACK_MIN_COSINE): if the best match score is below it, decline
+    and return (False, "", [], []).  Never claim found=True on a weak match.
+
+    Returns:
+        (found, answer_text, provenance, graph_node_ids)
+        found=False means decline (score too low or no statements).
+    """
+    stmts = _statement_embeddings(driver, database, llm)
+    if not stmts:
+        return (False, "", [], [])
+
+    question_vec = llm.embed([question])[0]
+    top = top_k_statements(question_vec, stmts, FALLBACK_TOP_K)
+
+    if not fallback_is_confident(top):
+        return (False, "", [], [])
+
+    # Build Provenance with kind="related" (semantically similar, not causal source)
+    provenance = [
+        Provenance(
+            statement_id=s["id"],
+            speaker=s["speaker"],
+            text=s["text"],
+            kind="related",
+        )
+        for s in top
+    ]
+
+    # compose_answer expects rows — pass an empty list since we have no Cypher rows
+    ans = compose_answer(question, [], provenance, llm)
+    return (True, ans, provenance, [])
+
+
 def answer(
     question: str,
     llm=None,
@@ -579,10 +730,21 @@ def answer(
             break
 
         if valid_cypher is None:
+            # Cypher path exhausted — try semantic fallback
+            fb_found, fb_ans, fb_prov, _ = semantic_fallback(question, driver, database, llm)
+            if fb_found:
+                return QAResult(
+                    question=question,
+                    answer=fb_ans,
+                    mode="semantic-fallback",
+                    found=True,
+                    cypher=last_cypher,
+                    provenance=fb_prov,
+                )
             return QAResult(
                 question=question,
-                answer="Could not find an answer: failed to produce a valid Cypher query.",
-                mode="cypher",
+                answer="I couldn't find that in the conversation.",
+                mode="semantic-fallback",
                 found=False,
                 cypher=last_cypher,
             )
@@ -590,10 +752,21 @@ def answer(
         rows = run_read(driver, database, valid_cypher)
 
         if not rows:
+            # Cypher returned no rows — try semantic fallback
+            fb_found, fb_ans, fb_prov, _ = semantic_fallback(question, driver, database, llm)
+            if fb_found:
+                return QAResult(
+                    question=question,
+                    answer=fb_ans,
+                    mode="semantic-fallback",
+                    found=True,
+                    cypher=valid_cypher,
+                    provenance=fb_prov,
+                )
             return QAResult(
                 question=question,
-                answer="Could not find an answer: the query returned no results.",
-                mode="cypher",
+                answer="I couldn't find that in the conversation.",
+                mode="semantic-fallback",
                 found=False,
                 cypher=valid_cypher,
             )
@@ -617,3 +790,29 @@ def answer(
     finally:
         if own_driver:
             driver.close()
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point: python -m src.qa "<question>"
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) < 2:
+        print("Usage: python -m src.qa \"<question>\"")
+        sys.exit(1)
+
+    question = sys.argv[1]
+    result = answer(question)
+
+    print(f"\nQ: {question}")
+    print(f"A: {result.answer}")
+    print(f"\nMode: {result.mode}  |  Found: {result.found}  |  Hops: {result.hops}")
+
+    if result.provenance:
+        print("\nProvenance:")
+        for p in result.provenance:
+            print(f"  [{p.kind}] {p.speaker}: \"{p.text}\"")
+    else:
+        print("\nProvenance: (none)")

@@ -83,6 +83,10 @@ python -m src.diarize_asr <clip>        # diarize + translate -> data/work/<clip
 # Phase 2 — transcript -> knowledge graph (needs LM Studio + Neo4j running)
 python -m src.extract <clip>            # induce ontology + extract facts -> data/work/<clip>.facts.json
 python -m src.graph <clip>              # idempotent upsert into Neo4j
+
+# Phase 3 — Ask Atyx (needs LM Studio + Neo4j running)
+python -m src.qa "What strategies help you get rich before 30?"
+python -m src.qa "What does the speaker say about investing early and compounding?"
 ```
 
 `<clip>` is a stem under `data/raw/` / `data/work/` (e.g. `sample2`). Re-running

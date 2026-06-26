@@ -189,3 +189,49 @@ def test_answer_multi_hop_business_ownership_chain():
     r = answer("How does business ownership help you get rich before 30?")
     assert r.found and r.mode == "cypher" and r.hops == "multi"
     assert any(p.kind == "source" for p in r.provenance)
+
+
+# ---------------------------------------------------------------------------
+# Task 7: cosine, top_k_statements, fallback_is_confident (pure)
+# ---------------------------------------------------------------------------
+
+from src.qa import cosine, top_k_statements, fallback_is_confident
+
+
+def test_cosine_basic_and_zero_safe():
+    assert cosine([1.0, 0.0], [1.0, 0.0]) == 1.0
+    assert cosine([1.0, 0.0], [0.0, 1.0]) == 0.0
+    assert cosine([0.0, 0.0], [1.0, 0.0]) == 0.0          # zero-vector safe, no div-by-zero
+
+
+def test_top_k_statements_ranks_by_cosine_with_scores():
+    stmts = [{"id": "s0", "speaker": "A", "text": "alpha", "vec": [1.0, 0.0]},
+             {"id": "s1", "speaker": "B", "text": "beta",  "vec": [0.0, 1.0]},
+             {"id": "s2", "speaker": "C", "text": "gamma", "vec": [0.9, 0.1]}]
+    top = top_k_statements([1.0, 0.0], stmts, k=2)
+    assert [s["id"] for s in top] == ["s0", "s2"]          # closest two, in order
+    assert "vec" not in top[0] and "score" in top[0]       # vec stripped, cosine score added
+    assert top[0]["score"] == 1.0                          # s0 identical -> cosine 1.0
+
+
+def test_fallback_is_confident_enforces_floor():
+    assert fallback_is_confident([{"id": "s", "score": 0.9}], floor=0.6) is True
+    assert fallback_is_confident([{"id": "s", "score": 0.4}], floor=0.6) is False  # below floor -> decline
+    assert fallback_is_confident([], floor=0.6) is False                           # empty -> decline
+
+
+@pytest.mark.integration
+def test_answer_falls_back_semantically_for_offscript_question():
+    from src.qa import answer
+    # phrased so text-to-Cypher likely returns zero rows, but the statement text covers it
+    r = answer("What does the speaker say about investing early and compounding?")
+    assert r.found
+    if r.mode == "semantic-fallback":
+        assert all(p.kind == "related" for p in r.provenance) and r.provenance
+
+
+@pytest.mark.integration
+def test_answer_reports_not_found_for_unanswerable():
+    from src.qa import answer
+    r = answer("What is the capital of France?")               # nothing in this graph/statements
+    assert r.found is False                                     # MUST decline on the cosine floor
