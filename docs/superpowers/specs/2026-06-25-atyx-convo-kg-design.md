@@ -102,12 +102,57 @@ Rationale: the vocabulary is genuinely induced from whatever audio arrives, but 
 
 ## 8. Extraction (`extract.py`) — chunk → extract → consolidate
 
-1. **Chunk** the transcript by a **token budget with small overlap, snapping to speaker-turn boundaries** (handles up to the 15-min cap without one giant prompt). Starting default: **~1500–2000 tokens/chunk with overlap**, set in `config.yaml` (tune empirically; one-line change).
-2. **Extract per chunk** against the induced schema, structured-output enforced; every fact must cite its **source statement**.
-3. **Consolidate**: merge duplicate entities across chunks via normalized-name + embedding similarity → stable IDs; deduplicate facts.
+1. **Chunk — speaker turn is the HARD boundary; ~1800 tokens is a SOFT target.** Accumulate
+   whole speaker turns until near the target, then cut at the **next** turn boundary — **never
+   mid-turn**. Chunks flex (~1600–2000) to land on clean boundaries. **Oversized single turn:**
+   if one turn alone exceeds the target, keep it intact as one over-target chunk (attribution
+   beats hitting the size; the 16K context absorbs it). **Length is measured with `tiktoken`
+   (`cl100k_base`)** — a pure-Python, torch-free *ruler* only (not exact qwen counts; chunk size
+   is a tunable heuristic in `config.yaml`). **Overlap:** prepend the previous chunk's last turn
+   as **read-only context**, explicitly marked context-only in the prompt so facts are **not**
+   extracted from or attributed to the overlap turn (prevents a Q→A fact being lost at a cut);
+   consolidation dedups any repeats.
+2. **Extract per chunk** against the induced schema, structured-output enforced; every fact must
+   cite its **source statement**. Facts below the **confidence threshold (~0.6, precision-biased)**
+   are dropped — a coarse secondary filter on top of mandatory grounding.
+3. **Consolidate — entity resolution is precision-biased.** Primary merge is **exact
+   normalized-name / alias match** (lowercase, strip, collapse whitespace) — safe and
+   high-precision. Embedding similarity is a **fallback only for non-matching names**, gated at
+   **cosine ≥ 0.85 AND same backbone label + induced `type`**. **When uncertain, do NOT merge:**
+   a duplicate node is a minor cosmetic issue, but wrongly merging two distinct entities (e.g.
+   PMS vs AIF) would break the comparison demo — so the **same-type guard is mandatory** and the
+   threshold stays high. **Stable ID = `slug(canonical_name)`.** Embeddings come from the
+   config `embed_model` over the OpenAI-compatible endpoint (torch-free main env). Facts are
+   deduped on `(subject_id, relation, object_id)`.
+   - **Relation canonicalization** mirrors entity resolution so near-synonym relations don't
+     fragment comparison edges: lexical-normalize (lowercase, expand common abbreviations e.g.
+     `min`→`minimum`, drop low-content words e.g. `amount`, snake_case) → exact match against the
+     induced relation vocab → embedding fallback (precision-gated) for the rest. **Acceptance:**
+     `"min investment"` and `"minimum investment amount"` must map to the **same** relation type.
 
 ## 9. Graph build (`graph.py`)
-Upsert the `FactSet` into Neo4j: stable labels + open `type` property; entities keyed by stable ID (idempotent upserts). Neo4j Browser gives the live, clickable graph for the demo.
+Upsert the `FactSet` into Neo4j via the official `neo4j` Python driver (torch-free; creds from
+`.env` — `NEO4J_URI`/`NEO4J_USERNAME`/`NEO4J_PASSWORD`/`NEO4J_DATABASE=neo4j`; local Neo4j 5.26
+Desktop instance). **Parameterized Cypher only** (no string interpolation). All writes are
+idempotent `MERGE`s keyed by stable ID — re-running the pipeline never duplicates nodes/edges.
+
+**Concrete schema mapping:**
+- **`:Statement`** node per source utterance — `{id, text, speaker, clip, start, end}`. The
+  grounding anchor every fact traces back to.
+- **`:Speaker`** node per speaker — `(:Speaker)-[:SAID]->(:Statement)`.
+- **`:Entity` / `:Claim` / `:Attribute`** nodes (backbone label) — `{id, name, type, attrs…}`,
+  where `type` is the open induced subtype.
+- **Each `Fact`** → a relationship `(subject)-[:REL {confidence, speaker, source_statement_id}]->(object)`,
+  where `REL` is the canonicalized induced `relation` sanitized to a valid Neo4j type
+  (e.g. `HAS_MINIMUM_INVESTMENT`). Grounding is stored as **`source_statement_id` on the edge**
+  (single-hop); the `:Statement` node stays queryable so every edge traces to who said it.
+  *(Reify grounding as a separate `(:Statement)-[:SUPPORTS]->` node only later, if multi-hop needs it.)*
+- **Phase 3 wiring note:** Q&A reads `source_statement_id` off the answering edge and joins back to
+  the `:Statement` node to surface the verbatim quote — that's the grounding-to-UI path.
+
+Neo4j Browser (`localhost:7474`) gives the live, clickable graph for the demo. **Phase 2 bar:** a
+populated, browsable, traceable graph — don't gold-plate the schema at the expense of the
+end-to-end run.
 
 ## 10. Q&A (`qa.py`) — schema-aware text-to-Cypher with fallback
 1. **Introspect the live Neo4j schema** (labels, relationship types, property keys) and inject it into the Cypher-generation prompt — Q&A adapts to whatever ontology was induced.
