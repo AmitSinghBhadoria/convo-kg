@@ -1,0 +1,22 @@
+# Isolated AUDIO stack (ASR + diarization) — .venv-asr
+# WhisperX + pyannote need torchaudio's AudioMetaData, which the latest torchaudio (2.11)
+# removed; they also conflict with the newest transformers/huggingface_hub. This is a
+# co-tested, exact-pinned set, VERIFIED to import together and load pyannote (2026-06-26).
+#
+# Build:
+#   uv venv .venv-asr --python 3.12
+#   uv pip install --python .venv-asr -r requirements-asr.txt
+#
+torch==2.2.2
+torchaudio==2.2.2          # has torchaudio.AudioMetaData (pyannote/whisperx need it)
+numpy==1.26.4              # <2: torch 2.2.x is built against numpy 1.x
+transformers==4.40.0       # supports torch 2.2 (newer transformers requires torch>=2.4)
+huggingface_hub==0.25.2    # still exposes use_auth_token (pyannote 3.3.2 calls it; removed in 0.26)
+whisperx==3.3.1            # provides pyannote.audio==3.3.2 (used) + faster-whisper/ctranslate2.
+                           # NOTE: WhisperX forced-alignment is NOT used in the live path — its
+                           # wav2vec aligner is language-matched and breaks on translate-to-English
+                           # of Hinglish audio (see design_note.md §ASR). Kept for the pinned
+                           # pyannote it brings in; remove only with a venv rebuild + re-verify.
+mlx-whisper==0.4.3         # ASR in the live path: task="translate" (Hinglish→English) on Metal
+soundfile                  # audio I/O in the worker
+librosa

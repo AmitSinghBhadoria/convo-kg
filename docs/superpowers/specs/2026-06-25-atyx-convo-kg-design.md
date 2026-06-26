@@ -166,28 +166,35 @@ The demo UI is the approved **Atyx dark-editorial design** (`Ui-design/Atyx Conv
 
 **New backend requirement this surfaces:** `qa.py` must return, per answer, the **subgraph node IDs used** and the **source statement(s)** — already implied by our "full explainability" commitment; now contractually required by the UI.
 
-**Honesty notes:** the prototype fakes an ~8.8 s run; **real runs are slower and messier**. The UI must handle **variable timing, stage errors, and graceful degradation** (fewer graph nodes / lower-confidence facts on noisy audio) — the streaming model already fits this. Stage sub-labels show the **real stack** (DeepFilterNet · pyannote 3.x · WhisperX/mlx-whisper · qwen3.5-9b via LM Studio · Neo4j).
+**Honesty notes:** the prototype fakes an ~8.8 s run; **real runs are slower and messier**. The UI must handle **variable timing, stage errors, and graceful degradation** (fewer graph nodes / lower-confidence facts on noisy audio) — the streaming model already fits this. Stage sub-labels show the **real stack** (DeepFilterNet · pyannote 3.x · mlx-whisper translate · qwen3.5-9b via LM Studio · Neo4j).
 
 **Third entrypoint:** `serve` — launch FastAPI + frontend for the live demo (alongside `run` and `eval`).
 
 ## 15. Tech stack & environment
 - **Python 3.12 pinned via `uv`** (3.14 has no ML wheels). Lockfile for reproducibility.
-- **Denoise:** DeepFilterNet. **ASR:** mlx-whisper (fast dev loop, Metal) + WhisperX (final attributed pass). **Diarization:** pyannote 3.x (HF token).
+- **Audio ML runs in two isolated, exact-pinned venvs** (subprocess workers; the audio libs have irreconcilable `torchaudio` needs):
+  - `.venv-asr` (`requirements-asr.txt`): **ASR** mlx-whisper (Metal) `task="translate"` (Hinglish→English) · **Diarization** pyannote 3.3.2 · torch 2.2.2 / torchaudio 2.2.2 · transformers 4.40 · huggingface_hub 0.25.2 (HF token). *(WhisperX is installed in this venv but no longer used in the live path — its forced-alignment is language-matched and incompatible with translate-to-English on Hinglish; see design_note.md §ASR.)*
+  - `.venv-denoise` (`requirements-denoise.txt`): **Denoise** DeepFilterNet 0.5.6 · torch 2.0.1 / torchaudio 2.0.2.
 - **LLM:** `qwen/qwen3.5-9b` via LM Studio OpenAI-compatible endpoint (runner-agnostic). **Embeddings:** nomic-embed (local).
 - **Graph:** Neo4j Community via Docker. **Driver:** neo4j-python.
-- **Core deps:** `openai`, `pydantic`, `neo4j`, `soundfile`/`librosa`, `numpy`.
+- **Main-env deps (no torch):** `openai`, `pydantic`, `neo4j`, `soundfile`/`librosa`, `numpy`, `python-dotenv`.
 - **API/UI:** `fastapi` + `uvicorn` (SSE); frontend = static vanilla JS + **D3** (vendored), fonts vendored (Cormorant Garamond, Inter, JetBrains Mono). No Node build.
 
 ## 16. Repo structure
 ```
+pyproject.toml (main, torch-free) · requirements-asr.txt · requirements-denoise.txt
 src/
-  contracts.py · config.py · llm.py · enhance.py · diarize_asr.py · ontology.py ·
-  extract.py · graph.py · qa.py · pipeline.py (run <audio>) · evaluate.py (eval <audio> <ref>) ·
+  contracts.py · config.py · llm.py · evaltools.py · asr_merge.py (pure merge) ·
+  enhance.py (->subprocess .venv-denoise) · diarize_asr.py (->subprocess .venv-asr) ·
+  ontology.py · extract.py · graph.py · qa.py ·
+  pipeline.py (run <audio>) · evaluate.py (eval <audio> <ref>) ·
   api.py (FastAPI: /api/run·stream·ask·experiment·graph + serves frontend/)
+scripts/ prep_clips.py · add_noise.py · make_ground_truth.py ·
+  denoise_worker.py (.venv-denoise) · asr_worker.py (.venv-asr, mlx-whisper translate + pyannote)
 frontend/ index.html · app.js · styles.css · assets/fonts/   (rebuilt from the prototype)
-scripts/{add_noise.py, make_ground_truth.py} · notebooks/demo.ipynb · design_note.md
-Ui-design/Atyx Convo-KG.html   (approved design reference)
+notebooks/demo.ipynb · design_note.md · Ui-design/Atyx Convo-KG.html (design reference)
 data/{raw,noisy,ground_truth,work}/   (media + noisy/work gitignored)
+.venv (main) · .venv-asr · .venv-denoise   (all gitignored; built per README)
 ```
 Three entrypoints: **`run <audio>`** = product path (any clip → graph → Q&A, no reference); **`eval <audio> <ref>`** = SNR sweep → three curves; **`serve`** = FastAPI + frontend for the live demo.
 

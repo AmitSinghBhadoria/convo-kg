@@ -111,3 +111,9 @@ dmypy.json
 # Design-tool thumbnails
 .thumbnail
 **/.thumbnail
+
+# Isolated DeepFilterNet denoise venv (torchaudio<2.1)
+.venv-denoise/
+
+# Isolated audio stack venv (whisperx+pyannote, torch 2.2.2)
+.venv-asr/
