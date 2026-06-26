@@ -6,7 +6,7 @@
 
 **Architecture:** Sequential pipeline of pure stages communicating through typed artifacts on disk (memory-safe on 24 GB, auditable, resumable). Each stage = `run(clip) -> writes artifact`. Phase 1 delivers the `enhance` and `diarize_asr` stages plus the shared foundation (`config`, `contracts`, `llm`).
 
-**Tech Stack:** Python 3.12 (uv), Pydantic v2, DeepFilterNet, mlx-whisper (dev) + WhisperX (final), pyannote.audio 3.x, OpenAI client → LM Studio, pytest.
+**Tech Stack:** **lean main env** (Python 3.12 via uv) = Pydantic v2, OpenAI client → LM Studio, pytest — **no torch**. Heavy audio ML runs in two **isolated, exact-pinned venvs** invoked as subprocess workers: `.venv-asr` (mlx-whisper + WhisperX + pyannote, torch 2.2.2) and `.venv-denoise` (DeepFilterNet, torch 2.0.1). Pins in `requirements-asr.txt` / `requirements-denoise.txt`; see README.
 
 ## Global Constraints
 - **Python 3.12 pinned via uv** — 3.14 has no ML wheels. Never use system Python.
@@ -17,26 +17,30 @@
 - **Every fact is source-grounded**; confidence threshold default `0.6`, precision-biased — both config values.
 - **Commit every task** with a descriptive message; push to `origin/main`. Co-author trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
 - **HF_TOKEN** read from `.env` (gitignored) for pyannote.
+- **Three-venv isolation (decided during build):** main `.venv` is **torch-free**; audio stages run in pinned isolated venvs — `.venv-asr` (ASR+diarization) and `.venv-denoise` (denoise) — invoked as subprocess workers, because pyannote/WhisperX vs DeepFilterNet have irreconcilable `torchaudio` needs. Pins: `requirements-asr.txt` / `requirements-denoise.txt`. Don't unpin without re-verifying.
 
 ## File Structure (Phase 1)
+
+Three environments (see README): **`.venv` (main, torch-free)** · **`.venv-asr`** (pinned ASR+diarization) · **`.venv-denoise`** (pinned denoise). The audio venvs are invoked as subprocess workers.
 ```
-pyproject.toml          # uv project + pinned deps
-config.yaml             # llm endpoint, model names, paths, thresholds, snr levels, clip cap
-.env                    # HF_TOKEN (gitignored)
+pyproject.toml             # main env (lean: pydantic, openai, fastapi, soundfile, librosa, ...)
+requirements-asr.txt       # .venv-asr exact pins (torch2.2.2, whisperx, pyannote, mlx-whisper)
+requirements-denoise.txt   # .venv-denoise exact pins (torch2.0.1, deepfilternet)
+config.yaml                # llm endpoint, model names, paths, thresholds, snr levels, clip cap
+.env                       # HF_TOKEN (gitignored)
 src/
-  __init__.py
-  config.py             # typed config loader (yaml + env override)
-  contracts.py          # Pydantic: Word, Utterance, Transcript, Entity, Fact, FactSet
-  llm.py                # OpenAI-compatible client: chat_json(), embed()
-  enhance.py            # DeepFilterNet denoise:  run(clip) -> data/work/<clip>.clean.wav
-  diarize_asr.py        # ASR+diarize -> data/work/<clip>.transcript.json  (dev + final modes)
-  evaltools.py          # transcript-similarity helper (shared, eval-safe)
+  config.py · contracts.py · llm.py · evaltools.py
+  asr_merge.py             # pure word->speaker merge (no torch; imports in both envs)
+  enhance.py               # orchestrator -> subprocess(.venv-denoise / denoise_worker.py)
+  diarize_asr.py           # orchestrator -> subprocess(.venv-asr / asr_worker.py)
 scripts/
-  prep_clips.py         # build data/raw/{pms,sample2,dev}.wav (16k mono) from source mp3s
+  prep_clips.py            # build data/raw/{pms,sample2,dev}.wav (16k mono)
+  denoise_worker.py        # runs in .venv-denoise (DeepFilterNet)
+  asr_worker.py            # runs in .venv-asr (mlx-whisper/whisperx + pyannote + merge)
+  asr_worker_final.py      # runs in .venv-asr (WhisperX final pass)
 tests/
-  conftest.py
-  fixtures/             # tiny wavs + a stub transcript
-  test_config.py · test_contracts.py · test_llm.py · test_enhance.py · test_diarize_asr.py
+  test_config.py · test_contracts.py · test_llm.py · test_enhance.py ·
+  test_diarize_asr.py · test_evaltools.py
 ```
 
 ---
@@ -56,7 +60,7 @@ tests/
 name = "atyx-convo-kg"
 version = "0.1.0"
 requires-python = ">=3.12,<3.13"
-dependencies = [
+dependencies = [   # main env is TORCH-FREE; audio ML lives in isolated .venv-asr/.venv-denoise
   "pydantic>=2.7",
   "pyyaml>=6.0",
   "openai>=1.40",
@@ -64,10 +68,6 @@ dependencies = [
   "soundfile>=0.12",
   "librosa>=0.10",
   "python-dotenv>=1.0",
-  "deepfilternet>=0.5.6",
-  "mlx-whisper>=0.4.0",
-  "whisperx>=3.1.1",
-  "pyannote.audio>=3.1",
   "fastapi>=0.110",
   "uvicorn>=0.29",
 ]
@@ -82,7 +82,7 @@ addopts = "-m 'not integration'"
 - [ ] **Step 2: Pin Python and sync**
 
 Run: `uv python install 3.12 && uv sync`
-Expected: resolves and installs; creates `.venv`. (Heavy ML wheels — first run downloads several GB. If a wheel fails on 3.12, note it and pin a compatible version.)
+Expected: resolves and installs; creates the lean main `.venv`. The audio stacks are SEPARATE isolated venvs built from `requirements-asr.txt` / `requirements-denoise.txt` (see README) — not part of `uv sync`.
 
 - [ ] **Step 3: Create package markers**
 
@@ -554,193 +554,235 @@ git commit -m "feat(enhance): DeepFilterNet denoise via isolated-venv subprocess
 
 ---
 
-### Task 7: `diarize_asr` — dev path (mlx-whisper + pyannote → Transcript)
+### Task 7: `diarize_asr` — dev path (mlx-whisper + pyannote, `.venv-asr` worker)
+
+> **Architecture note (decided during build):** the ASR/diarization stack (WhisperX, pyannote, mlx-whisper) is irreconcilable with the main env's deps (torchaudio version), so it lives in the pre-built, exact-pinned `.venv-asr` (`requirements-asr.txt`). The `diarize_asr` stage runs there via a **subprocess worker** — same pattern as denoise. The controller has ALREADY built and verified `.venv-asr` (all import together; pyannote `SpeakerDiarization` loads; mlx-whisper imports). Pure merge logic stays in the main env (unit-testable); the worker imports it.
 
 **Files:**
-- Create: `src/diarize_asr.py`, `tests/test_diarize_asr.py`, `.env`
+- Create: `src/asr_merge.py` (pure, main env), `scripts/asr_worker.py` (runs in `.venv-asr`), `src/diarize_asr.py` (main orchestrator), `tests/test_diarize_asr.py`
 
 **Interfaces:**
-- Consumes: `data/work/<clip>.clean.wav`, `Transcript`/`Utterance`/`Word` (Task 3), `HF_TOKEN` from `.env`.
-- Produces: `run(clip:str, mode:str="dev") -> Path` writing `data/work/<clip>.transcript.json` (a `Transcript`). Helper `merge_words_to_speakers(words, turns) -> list[Utterance]` assigns each word the speaker of the most-overlapping diarization turn, then groups consecutive same-speaker words into utterances.
+- Consumes: `data/work/<clip>.clean.wav`; pre-built `.venv-asr`; `HF_TOKEN` (`.env`).
+- Produces: `merge_words_to_speakers(words, turns) -> list[dict]` (pure); `run(clip, mode="dev") -> Path` writing `data/work/<clip>.transcript.json` (a `Transcript`). Worker CLI: `python scripts/asr_worker.py <clip> <dev|final>`.
 
-- [ ] **Step 1: Write the failing unit test for the merge logic** — `tests/test_diarize_asr.py`
+- [ ] **Step 1: pure merge logic + failing unit test**
 
+`src/asr_merge.py` (plain dicts — no pydantic/torch, imports in BOTH envs):
 ```python
-from src.diarize_asr import merge_words_to_speakers
-from src.contracts import Word
-
-def test_merge_assigns_speaker_by_overlap():
-    words = [Word(text="PMS", start=0.1, end=0.4, speaker=""),
-             Word(text="minimum", start=0.5, end=0.9, speaker=""),
-             Word(text="haan", start=2.1, end=2.4, speaker="")]
-    turns = [("SPEAKER_00", 0.0, 1.0), ("SPEAKER_01", 2.0, 3.0)]
-    utts = merge_words_to_speakers(words, turns)
-    assert [u.speaker for u in utts] == ["SPEAKER_00", "SPEAKER_01"]
-    assert utts[0].text == "PMS minimum" and utts[1].text == "haan"
-```
-
-- [ ] **Step 2: Run to verify it fails**
-
-Run: `uv run pytest tests/test_diarize_asr.py -v`
-Expected: FAIL — `ModuleNotFoundError: src.diarize_asr`.
-
-- [ ] **Step 3: Write `src/diarize_asr.py`** (dev mode + merge; final mode added in Task 8)
-
-```python
-"""Diarization + Hinglish->English ASR -> attributed Transcript.
-dev mode: mlx-whisper (fast, Metal) translate + pyannote diarization, merged by overlap.
-"""
-import os, sys
-from pathlib import Path
-from dotenv import load_dotenv
-from src.contracts import Word, Utterance, Transcript
-
-load_dotenv()
-WORK = Path("data/work")
-
-def _overlap(a0, a1, b0, b1) -> float:
+"""Pure word->speaker merge (no torch/pydantic) so it runs in main AND .venv-asr."""
+def _overlap(a0, a1, b0, b1):
     return max(0.0, min(a1, b1) - max(a0, b0))
 
-def merge_words_to_speakers(words: list[Word], turns: list[tuple[str, float, float]]) -> list[Utterance]:
+def merge_words_to_speakers(words, turns):
+    """words: [{'text','start','end'}]; turns: [(speaker,t0,t1)].
+    Assign each word the most-overlapping turn's speaker; group consecutive same-speaker
+    words into utterances. Returns [{'speaker','text','start','end','words':[...]}]."""
+    out = []
     for w in words:
-        best, bestov = "", -1.0
+        best, bestov = (turns[0][0] if turns else "SPEAKER_00"), -1.0
         for spk, t0, t1 in turns:
-            ov = _overlap(w.start, w.end, t0, t1)
-            if ov > bestov: best, bestov = spk, ov
-        w.speaker = best or (turns[0][0] if turns else "SPEAKER_00")
-    utts: list[Utterance] = []
-    for w in words:
-        if utts and utts[-1].speaker == w.speaker:
-            utts[-1].words.append(w); utts[-1].text += " " + w.text; utts[-1].end = w.end
+            ov = _overlap(w["start"], w["end"], t0, t1)
+            if ov > bestov:
+                best, bestov = spk, ov
+        wd = {**w, "speaker": best}
+        if out and out[-1]["speaker"] == best:
+            out[-1]["words"].append(wd); out[-1]["text"] += " " + wd["text"]; out[-1]["end"] = wd["end"]
         else:
-            utts.append(Utterance(speaker=w.speaker, text=w.text, start=w.start, end=w.end, words=[w]))
-    return utts
+            out.append({"speaker": best, "text": wd["text"], "start": wd["start"],
+                        "end": wd["end"], "words": [wd]})
+    return out
+```
 
-def _asr_mlx(wav: Path) -> list[Word]:
-    import mlx_whisper
-    r = mlx_whisper.transcribe(str(wav), path_or_hf_repo="mlx-community/whisper-large-v3-mlx",
-                               task="translate", word_timestamps=True)
-    words: list[Word] = []
-    for seg in r["segments"]:
-        for w in seg.get("words", []):
-            words.append(Word(text=w["word"].strip(), start=float(w["start"]),
-                              end=float(w["end"]), speaker=""))
-    return words
+`tests/test_diarize_asr.py` (unit):
+```python
+from src.asr_merge import merge_words_to_speakers
 
-def _diarize(wav: Path) -> list[tuple[str, float, float]]:
+def test_merge_assigns_speaker_by_overlap():
+    words = [{"text":"PMS","start":0.1,"end":0.4},
+             {"text":"minimum","start":0.5,"end":0.9},
+             {"text":"haan","start":2.1,"end":2.4}]
+    turns = [("SPEAKER_00",0.0,1.0), ("SPEAKER_01",2.0,3.0)]
+    utts = merge_words_to_speakers(words, turns)
+    assert [u["speaker"] for u in utts] == ["SPEAKER_00","SPEAKER_01"]
+    assert utts[0]["text"] == "PMS minimum" and utts[1]["text"] == "haan"
+```
+
+- [ ] **Step 2: run unit test, confirm RED**
+
+`cd /Users/amit/Personal/Atyx && source .venv/bin/activate && pytest tests/test_diarize_asr.py -v`
+Expected: FAIL — `ModuleNotFoundError: src.asr_merge`.
+
+- [ ] **Step 3: write the worker** — `scripts/asr_worker.py` (runs in `.venv-asr`, NOT main)
+
+```python
+"""ASR + diarization worker — runs in .venv-asr (NOT the main env).
+Usage: python scripts/asr_worker.py <clip> <dev|final>
+Reads data/work/<clip>.clean.wav, writes data/work/<clip>.transcript.json (Transcript schema).
+HF_TOKEN is passed in the environment by the parent (src/diarize_asr.py).
+"""
+import os, sys, json, warnings
+warnings.filterwarnings("ignore")
+from pathlib import Path
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))   # import src.asr_merge
+sys.path.insert(0, str(HERE))          # import sibling asr_worker_final (Task 8)
+from src.asr_merge import merge_words_to_speakers
+WORK = Path("data/work")
+
+def _diarize(wav):
     from pyannote.audio import Pipeline
     pipe = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1",
                                     use_auth_token=os.environ["HF_TOKEN"])
     diar = pipe(str(wav))
-    return [(spk, seg.start, seg.end) for seg, _, spk in diar.itertracks(yield_label=True)]
+    return [(spk, float(s.start), float(s.end)) for s, _, spk in diar.itertracks(yield_label=True)]
 
-def run(clip: str, mode: str = "dev") -> Path:
+def _asr_dev(wav):
+    import mlx_whisper
+    r = mlx_whisper.transcribe(str(wav), path_or_hf_repo="mlx-community/whisper-large-v3-mlx",
+                               task="translate", word_timestamps=True)
+    words = []
+    for seg in r["segments"]:
+        for w in seg.get("words", []):
+            words.append({"text": w["word"].strip(), "start": float(w["start"]), "end": float(w["end"])})
+    return words
+
+def run_dev(clip, wav):
+    words = _asr_dev(wav)
+    turns = _diarize(wav)
+    return {"clip": clip, "snr": None, "utterances": merge_words_to_speakers(words, turns)}
+
+def main(clip, mode):
     wav = WORK / f"{clip}.clean.wav"
     if mode == "final":
-        from src.diarize_asr_final import run_final
-        return run_final(clip, wav)
-    words = _asr_mlx(wav)            # load ASR, release
-    turns = _diarize(wav)           # load diarizer, release
-    utts = merge_words_to_speakers(words, turns)
-    t = Transcript(clip=clip, snr=None, utterances=utts)
+        from asr_worker_final import run_final
+        data = run_final(clip, wav)
+    else:
+        data = run_dev(clip, wav)
+    (WORK / f"{clip}.transcript.json").write_text(json.dumps(data, indent=2))
+    print(f"wrote {clip}.transcript.json ({len(data['utterances'])} utterances, {mode})")
+
+if __name__ == "__main__":
+    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else "dev")
+```
+
+- [ ] **Step 4: write the orchestrator** — `src/diarize_asr.py` (main env)
+
+```python
+"""diarize_asr stage — orchestrates the .venv-asr worker (subprocess) and validates output.
+The heavy ASR/diarization runs in .venv-asr; this stays in the (torch-free) main env.
+"""
+import os, subprocess, sys
+from pathlib import Path
+from dotenv import load_dotenv
+from src.contracts import Transcript
+
+ROOT = Path(__file__).resolve().parent.parent
+WORK = ROOT / "data" / "work"
+ASR_PY = ROOT / ".venv-asr" / "bin" / "python"
+WORKER = ROOT / "scripts" / "asr_worker.py"
+
+def run(clip: str, mode: str = "dev") -> Path:
+    load_dotenv(ROOT / ".env")
+    if not Path(ASR_PY).exists():
+        raise RuntimeError(f"audio venv missing at {ASR_PY} — build it (README: requirements-asr.txt)")
+    if "HF_TOKEN" not in os.environ:
+        raise RuntimeError("HF_TOKEN not set (needed for pyannote) — add it to .env")
+    proc = subprocess.run([str(ASR_PY), str(WORKER), clip, mode],
+                          cwd=str(ROOT), env={**os.environ}, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(f"asr worker failed (rc={proc.returncode}):\n{proc.stderr[-3000:]}")
     dst = WORK / f"{clip}.transcript.json"
-    dst.write_text(t.model_dump_json(indent=2))
-    print("wrote", dst, f"({len(utts)} utterances)")
+    Transcript.model_validate_json(dst.read_text())     # validate worker output against contract
+    print("wrote", dst)
     return dst
 
 if __name__ == "__main__":
     run(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else "dev")
 ```
 
-- [ ] **Step 4: Run the unit test to verify pass**
+- [ ] **Step 5: add guard unit test + confirm units pass**
 
-Run: `uv run pytest tests/test_diarize_asr.py -v`
-Expected: PASS (merge logic; no models needed).
+Append to `tests/test_diarize_asr.py`:
+```python
+def test_run_raises_without_asr_venv(monkeypatch, tmp_path):
+    import pytest, src.diarize_asr as d
+    monkeypatch.setattr(d, "ASR_PY", tmp_path / "no_python")
+    with pytest.raises(RuntimeError, match="audio venv"):
+        d.run("dev")
+```
+Run: `... && pytest tests/test_diarize_asr.py -v` → merge + guard PASS (no models needed).
 
-- [ ] **Step 5: Integration smoke on dev.wav (needs HF_TOKEN — Blocker #2, models download)**
+- [ ] **Step 6: integration smoke on dev.wav** (needs `.venv-asr` + HF_TOKEN; downloads mlx whisper-large-v3 ~3GB + pyannote)
 
-Run: `uv run python -m src.enhance dev && uv run python -m src.diarize_asr dev dev`
-Expected: writes `data/work/dev.transcript.json` with utterances tagged `SPEAKER_xx` and English text. Eyeball it: speakers alternate sensibly, Hindi rendered as English.
+`cd /Users/amit/Personal/Atyx && source .venv/bin/activate && python -m src.enhance dev && python -m src.diarize_asr dev dev`
+Expected: writes `data/work/dev.transcript.json` with speaker-tagged English utterances. Eyeball: speakers alternate sensibly; Hindi rendered as English.
+If the worker errors (mlx-whisper model/API, pyannote), the orchestrator surfaces stderr — **STOP and report, do not hack.**
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: commit**
 
 ```bash
-git add src/diarize_asr.py tests/test_diarize_asr.py
-git commit -m "feat(asr): dev-mode mlx-whisper translate + pyannote diarize -> Transcript"
+git add src/asr_merge.py scripts/asr_worker.py src/diarize_asr.py tests/test_diarize_asr.py
+git commit -m "feat(asr): dev-path diarize_asr via .venv-asr worker (mlx-whisper + pyannote)"
 ```
 
 ---
 
-### Task 8: `diarize_asr` — final path (WhisperX align + diarize)
+### Task 8: `diarize_asr` — final path (WhisperX align + diarize, `.venv-asr`)
 
 **Files:**
-- Create: `src/diarize_asr_final.py`, add a test case to `tests/test_diarize_asr.py`
+- Create: `scripts/asr_worker_final.py` (in `.venv-asr`, imported by `asr_worker.py` when mode=`final`); add a test to `tests/test_diarize_asr.py`.
 
 **Interfaces:**
-- Consumes: `data/work/<clip>.clean.wav`, `HF_TOKEN`.
-- Produces: `run_final(clip:str, wav:Path) -> Path` writing `data/work/<clip>.transcript.json` using WhisperX word-alignment + integrated pyannote, returning the same `Transcript` shape (so downstream is mode-agnostic).
+- Produces: `run_final(clip, wav) -> dict` (Transcript-shaped dict) via WhisperX translate + word-align + integrated pyannote. Same output shape as `run_dev`, so downstream is mode-agnostic.
 
-- [ ] **Step 1: Write `src/diarize_asr_final.py`**
+- [ ] **Step 1: write `scripts/asr_worker_final.py`** (runs in `.venv-asr`)
 
 ```python
-"""Final attributed pass: WhisperX (translate + word align + diarize)."""
+"""WhisperX final pass — runs in .venv-asr. Imported by asr_worker.py for mode='final'."""
 import os
-from pathlib import Path
 import whisperx
-from src.contracts import Word, Utterance, Transcript
 
-WORK = Path("data/work")
-
-def run_final(clip: str, wav: Path) -> Path:
-    device, compute = "cpu", "int8"          # M4: CPU/MPS; int8 keeps memory low
+def run_final(clip, wav):
+    device, compute = "cpu", "int8"        # M4: CPU/int8 keeps memory low
     model = whisperx.load_model("large-v3", device, compute_type=compute, task="translate")
     audio = whisperx.load_audio(str(wav))
     result = model.transcribe(audio, batch_size=8)
-    align_model, meta = whisperx.load_align_model(language_code="en", device=device)
-    result = whisperx.align(result["segments"], align_model, meta, audio, device,
-                            return_char_alignments=False)
+    amodel, meta = whisperx.load_align_model(language_code="en", device=device)
+    result = whisperx.align(result["segments"], amodel, meta, audio, device, return_char_alignments=False)
     dia = whisperx.DiarizationPipeline(use_auth_token=os.environ["HF_TOKEN"], device=device)
-    diar = dia(audio)
-    result = whisperx.assign_word_speakers(diar, result)
-    utts: list[Utterance] = []
+    result = whisperx.assign_word_speakers(dia(audio), result)
+    utts = []
     for seg in result["segments"]:
         spk = seg.get("speaker", "SPEAKER_00")
-        words = [Word(text=w["word"].strip(), start=float(w.get("start", seg["start"])),
-                      end=float(w.get("end", seg["end"])), speaker=w.get("speaker", spk))
-                 for w in seg.get("words", [])]
-        utts.append(Utterance(speaker=spk, text=seg["text"].strip(),
-                              start=float(seg["start"]), end=float(seg["end"]), words=words))
-    t = Transcript(clip=clip, snr=None, utterances=utts)
-    dst = WORK / f"{clip}.transcript.json"
-    dst.write_text(t.model_dump_json(indent=2))
-    print("wrote", dst, f"({len(utts)} utterances, final)")
-    return dst
+        words = [{"text": w["word"].strip(),
+                  "start": float(w.get("start", seg["start"])),
+                  "end": float(w.get("end", seg["end"])),
+                  "speaker": w.get("speaker", spk)} for w in seg.get("words", [])]
+        utts.append({"speaker": spk, "text": seg["text"].strip(),
+                     "start": float(seg["start"]), "end": float(seg["end"]), "words": words})
+    return {"clip": clip, "snr": None, "utterances": utts}
 ```
 
-- [ ] **Step 2: Add a contract test** — append to `tests/test_diarize_asr.py`
+- [ ] **Step 2: source-level test** (whisperx can't import in the main pytest env, so assert the contract at source level)
 
+Append to `tests/test_diarize_asr.py`:
 ```python
-def test_final_module_importable():
-    import importlib
-    m = importlib.import_module("src.diarize_asr_final")
-    assert hasattr(m, "run_final")
+def test_final_worker_defines_run_final():
+    src = open("scripts/asr_worker_final.py").read()
+    assert "def run_final" in src and "assign_word_speakers" in src
 ```
+Run: `... && pytest tests/test_diarize_asr.py -v` → all unit tests PASS.
 
-- [ ] **Step 3: Run unit tests**
+- [ ] **Step 3: integration on sample2 (final)** (downloads WhisperX large-v3 ~3GB + wav2vec aligner)
 
-Run: `uv run pytest tests/test_diarize_asr.py -v`
-Expected: PASS (merge + import tests).
+`cd /Users/amit/Personal/Atyx && source .venv/bin/activate && python -m src.enhance sample2 && python -m src.diarize_asr sample2 final`
+Expected: writes `data/work/sample2.transcript.json` (final mode), validates against `Transcript`. Compare to `sample2.txt`. If WhisperX API differs from this code, **STOP and report, do not hack.**
 
-- [ ] **Step 4: Integration on sample2 (short, heavier Hindi)**
-
-Run: `uv run python -m src.enhance sample2 && uv run python -m src.diarize_asr sample2 final`
-Expected: writes `data/work/sample2.transcript.json` (final mode). Compare by eye to `sample2.txt`.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: commit**
 
 ```bash
-git add src/diarize_asr_final.py tests/test_diarize_asr.py
-git commit -m "feat(asr): final-mode WhisperX align+diarize, mode-agnostic Transcript"
+git add scripts/asr_worker_final.py tests/test_diarize_asr.py
+git commit -m "feat(asr): final-path WhisperX worker in .venv-asr"
 ```
 
 ---
