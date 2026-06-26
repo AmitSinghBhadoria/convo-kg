@@ -118,8 +118,51 @@ Controlled-SNR harness with three curves: transcript-similarity (ceiling) → fa
 with a frontier oracle in the eval path only (never importable by the product path), then
 human-verified. Numbers go here once the harness runs.
 
+## Measured capability boundary: single-hop generalizes, multi-hop does not (local ~9B)
+
+This is the most instructive result, so it is reported in full rather than hidden.
+
+**Single-hop text-to-Cypher generalizes genuinely.** Given only *live, data-driven*
+schema grounding — sampled relationship directions, sampled entity names by type, the
+live label set, and the property-graph rules (`:Entity {type:'X'}`, not `:X`; fact edges
+connect Entity→Entity; `source_statement_id` is an edge property) — the local ~9B model
+writes correct single-hop Cypher across rephrasings of a question, returning the right
+rows with real edge-level provenance. Nothing about the question is encoded in the prompt;
+the same grounding code produces correct grounding for any induced graph.
+
+**Multi-hop does not — and the honest path to that finding matters.** An early version of
+the multi-hop acceptance test passed, but only because the prompt contained worked-example
+queries spelling out the exact `AssetClass-[HAS_STRATEGY]->WealthStrategy-[ACHIEVES_GOAL]->
+FinancialGoal` chain that answered the demo question. That is the demo answer smuggled into
+the prompt: the test proved the plumbing, not the model's reasoning. We caught it with a
+single test — *would this prompt text be equally correct and helpful for a completely
+different conversation's induced graph?* — and removed it. With the overfit gone, we then
+tried a **generic** fix: sample the live graph's actual 2-hop connectivity *patterns*
+(`MATCH (a)-[r1]->(b)-[r2]->(c) RETURN DISTINCT type-shapes`) and show those to the model.
+That is legitimate (graph-derived, question-agnostic) and it helped — but only to **~3/5
+across rephrasings**, below our "robust, not rehearsed" bar, so it was reverted rather than
+shipped as a demo that works only on the rehearsed phrasing (which would be worse than no
+multi-hop, because it looks like the overfit we just removed).
+
+**Root cause is entity resolution, not path ignorance.** The residual failures are not the
+model failing to find the 2-hop pattern; they are the model linking the *wrong* entity.
+"Starting/running your own business" gets resolved to the `WealthStrategy` node ("Do your
+own business") instead of the `AssetClass` node ("business ownership"), so it skips the
+first hop entirely and then traverses a non-existent direct edge (0 rows). The graph
+genuinely supports the chain (verified structurally); the bottleneck is question→entity
+linking under paraphrase.
+
+**How I'd cross it.** (1) An explicit entity-linking step — embed question spans against
+entity-name embeddings, resolve to node ids, and hand the model resolved anchors instead of
+free-text names; (2) guided query decomposition — ask the model for the hop sequence
+(strategy?, then goal?) and assemble the Cypher deterministically; (3) a stronger / Cypher-
+tuned model. The multi-hop test is marked `xfail(strict=False)` with this finding, so it
+flips to green automatically if a future model clears it. Single-hop, the graph structure,
+and provenance are all production-solid; multi-hop is a measured, named boundary with a
+concrete fix path.
+
 ## What is stubbed / out of scope for v1
 
 Guaranteed accuracy under extreme/adversarial noise; streaming / large-scale ingestion;
 full ontology coverage; accuracy metrics at scale; auth / multi-tenancy. Architected for,
-not built.
+not built. Multi-hop Q&A on a local ~9B is a measured limitation (above), not stubbed.
