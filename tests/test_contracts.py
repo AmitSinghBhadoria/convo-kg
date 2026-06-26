@@ -1,3 +1,5 @@
+import pytest
+from pydantic import ValidationError
 from src.contracts import Word, Utterance, Transcript, Entity, Fact, FactSet
 
 def test_transcript_roundtrip():
@@ -7,6 +9,14 @@ def test_transcript_roundtrip():
     again = Transcript.model_validate_json(t.model_dump_json())
     assert again.utterances[0].speaker == "SPEAKER_01"
     assert again.utterances[0].words[0].text == "PMS"
+
+def test_entity_label_must_be_backbone():
+    with pytest.raises(ValidationError):
+        Entity(id="x", label="Foobar", type="Whatever", name="X", attrs={})
+
+def test_fact_statement_is_mandatory():
+    with pytest.raises(ValidationError):
+        Fact(subject_id="a", relation="R", object_id="b", speaker="S1", confidence=0.9)
 
 def test_fact_requires_grounding():
     f = Fact(subject_id="entity:pms", relation="HAS_MIN", object_id="amount:50l",

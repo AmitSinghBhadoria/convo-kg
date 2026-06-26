@@ -1,4 +1,7 @@
+from typing import Literal, Any
 from pydantic import BaseModel, Field
+
+EntityLabel = Literal["Speaker", "Statement", "Entity", "Claim", "Attribute"]
 
 class Word(BaseModel):
     text: str
@@ -20,10 +23,10 @@ class Transcript(BaseModel):
 
 class Entity(BaseModel):
     id: str               # stable dedupe key, e.g. "entity:pms"
-    label: str            # fixed backbone: Speaker|Statement|Entity|Claim|Attribute
+    label: EntityLabel
     type: str             # induced open vocabulary
     name: str
-    attrs: dict = Field(default_factory=dict)
+    attrs: dict[str, Any] = Field(default_factory=dict)
 
 class Fact(BaseModel):
     subject_id: str
