@@ -68,19 +68,42 @@ timestamps over. This is more build + verification than the deadline allows; it 
 here, not implemented. WhisperX remains installed in `.venv-asr` (for the pinned pyannote
 it pulls in) but is **not used** in the live path.
 
-## Local LLM (extraction + Q&A) — _in progress_
+## Local LLM (extraction + Q&A)
 
 Runner-agnostic client (`src/llm.py`) talks to any OpenAI-compatible endpoint
 (`base_url`/`model` from `config.yaml`, env-overridable); default LM Studio,
 `qwen/qwen3.5-9b`. qwen3.5 is a **thinking model** — reasoning must be **disabled** in
 LM Studio so structured JSON lands in `content` (deterministic, faster); the client also
-falls back to `reasoning_content` as a safety net. See README → Local LLM.
+falls back to `reasoning_content` as a safety net. See README → Local LLM. Extraction
+showed the local model returns schema-compliant, fully-grounded JSON on the first attempt
+(sample2: 13 entities / 12 facts, 0 ungrounded) — no prompt/schema workarounds needed.
 
-## Induced ontology + graph — _(pending: Phase 2)_
+## Induced ontology + graph (Phase 2 — built)
 
-Stable Neo4j label backbone (`:Speaker/:Statement/:Entity/:Claim/:Attribute`) with an
-open `type`/`relation` vocabulary; a proposal pass induces a per-clip vocabulary with a
-base-schema fallback. Entities are first-class nodes so single-hop extends to multi-hop.
+`transcript.json → ontology proposal → chunk → per-chunk extraction → consolidation →
+Neo4j`. The stable label backbone is `:Speaker/:Statement/:Entity/:Claim/:Attribute` with
+an open `type`/`relation` vocabulary; entities are first-class nodes so single-hop extends
+to multi-hop.
+
+- **Chunking** (`chunking.py`): speaker turn is a HARD boundary, ~1800 tokens a SOFT target
+  (tiktoken ruler); an oversized turn is kept intact; the previous turn rides along as
+  read-only context so cross-boundary facts survive.
+- **Ontology** (`ontology.py`): a proposal pass induces a small per-clip type/relation
+  vocabulary, with a fixed `BASE_ONTOLOGY` fallback on an empty/degenerate/errored proposal.
+- **Extraction** (`extract.py`): schema-enforced per-chunk JSON; every fact must cite the
+  `statement_id` of its source turn. Consolidation is **precision-biased** — drop facts that
+  are ungrounded (empty `statement_id`), below the confidence threshold (0.6), or reference
+  an unresolved entity; then dedup.
+- **Resolution** (`resolve.py`): entities merge by exact normalized name first, then an
+  embedding fallback gated by **cosine ≥ 0.85 AND same label+type** — so PMS and AIF never
+  collapse. Relations canonicalize (near-synonyms like "min investment" / "minimum investment
+  amount" → one type) while the canonical vocabulary stays a fixed point.
+- **Graph** (`graph.py`): idempotent `MERGE` upserts via the Neo4j driver; **parameterized
+  Cypher only**, with node labels gated by a closed allowlist and relationship types by a
+  charset-validated `safe_rel_type` — no LLM string is ever interpolated into a query.
+  Grounding is a `source_statement_id` on each fact edge, joinable back to its `:Statement`.
+- **End-to-end** (verified on sample2): a non-empty, fully source-traceable, idempotent
+  graph (re-running the upsert does not change node counts).
 
 ## Q&A — _(pending: Phase 3)_
 

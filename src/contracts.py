@@ -33,6 +33,7 @@ class Fact(BaseModel):
     relation: str         # induced open vocabulary
     object_id: str
     statement: str        # MANDATORY source grounding
+    statement_id: str = ""  # links to :Statement node in graph; set during extraction
     speaker: str
     confidence: float
 

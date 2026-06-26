@@ -25,3 +25,13 @@ def test_fact_requires_grounding():
     fs = FactSet(clip="dev", entities=[Entity(id="entity:pms", label="Entity",
                  type="FinancialProduct", name="PMS", attrs={})], facts=[f])
     assert FactSet.model_validate_json(fs.model_dump_json()).facts[0].relation == "HAS_MIN"
+
+def test_fact_carries_statement_id_default_and_roundtrip():
+    from src.contracts import Fact
+    f = Fact(subject_id="entity:pms", relation="HAS_MINIMUM_INVESTMENT",
+             object_id="attribute:50-lakh", statement="PMS needs 50 lakh minimum",
+             speaker="SPEAKER_00", confidence=0.9)
+    assert f.statement_id == ""                      # default, Phase 1 back-compat
+    f2 = Fact.model_validate_json(
+        f.model_copy(update={"statement_id": "stmt:pms:3"}).model_dump_json())
+    assert f2.statement_id == "stmt:pms:3"
