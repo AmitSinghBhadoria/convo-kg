@@ -46,3 +46,11 @@ HF_TOKEN=hf_xxxxxxxx
 ### Local LLM
 Extraction + Q&A talk to an OpenAI-compatible endpoint (LM Studio default
 `http://localhost:1234/v1`, model `qwen/qwen3.5-9b`) — configured in `config.yaml`.
+
+**Disable Reasoning/Thinking for the model in LM Studio.** qwen3.5-9b is a
+thinking model; with reasoning on it routes structured JSON to
+`reasoning_content` and leaves `content` empty. We need deterministic JSON for
+fact extraction and Cypher generation, so turn thinking off (LM Studio →
+model settings → Reasoning → off). The client has a `content or
+reasoning_content` fallback as a safety net, but thinking-off is the supported
+path.

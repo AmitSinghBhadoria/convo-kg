@@ -16,8 +16,12 @@ class LLM:
                 messages=[{"role": "system", "content": system},
                           {"role": "user", "content": user}],
                 response_format=rf, temperature=0)
+            msg = r.choices[0].message
+            # Thinking models (e.g. Qwen3.5) may route the JSON to reasoning_content
+            # and leave content empty; fall back to it so we're robust to the toggle state.
+            raw = msg.content or getattr(msg, "reasoning_content", None) or ""
             try:
-                return json.loads(r.choices[0].message.content)
+                return json.loads(raw)
             except json.JSONDecodeError:
                 if attempt == 1: raise
                 user = user + "\n\nReturn ONLY valid JSON matching the schema."
