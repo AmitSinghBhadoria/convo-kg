@@ -8,6 +8,7 @@ def merge_words_to_speakers(words, turns):
     words into utterances. Returns [{'speaker','text','start','end','words':[...]}]."""
     out = []
     for w in words:
+        # empty diarization -> default everyone to SPEAKER_00 (no crash; one merged utterance)
         best, bestov = (turns[0][0] if turns else "SPEAKER_00"), -1.0
         for spk, t0, t1 in turns:
             ov = _overlap(w["start"], w["end"], t0, t1)

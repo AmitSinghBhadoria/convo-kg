@@ -13,7 +13,7 @@ WORKER = ROOT / "scripts" / "asr_worker.py"
 
 def run(clip: str, mode: str = "dev") -> Path:
     load_dotenv(ROOT / ".env")
-    if not Path(ASR_PY).exists():
+    if not ASR_PY.exists():
         raise RuntimeError(f"audio venv missing at {ASR_PY} — build it (README: requirements-asr.txt)")
     if "HF_TOKEN" not in os.environ:
         raise RuntimeError("HF_TOKEN not set (needed for pyannote) — add it to .env")

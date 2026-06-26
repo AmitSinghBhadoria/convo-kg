@@ -10,7 +10,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))   # import src.asr_merge
 sys.path.insert(0, str(HERE))          # import sibling asr_worker_final (Task 8)
 from src.asr_merge import merge_words_to_speakers
-WORK = Path("data/work")
+WORK = Path(__file__).resolve().parent.parent / "data" / "work"
 
 def _diarize(wav):
     from pyannote.audio import Pipeline
