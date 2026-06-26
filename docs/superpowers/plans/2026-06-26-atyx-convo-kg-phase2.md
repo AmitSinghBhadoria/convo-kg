@@ -22,6 +22,11 @@
 - **Chunking:** speaker turn is the HARD boundary; `extract.chunk_tokens` (1800) is a SOFT target; an oversized single turn is kept intact; the previous chunk's last turn is included as READ-ONLY context (never extracted from).
 - **TDD, frequent commits.** Tests run via the activated venv: `source .venv/bin/activate && pytest ...`. Integration tests are marked `@pytest.mark.integration` (require LM Studio and/or a running Neo4j) and are deselected by default.
 
+## Confirmed Invariants (verified while finalizing the plan)
+
+- **No raw relation reaches Cypher.** The only path from an LLM-emitted relation to Neo4j is: `_extract_chunk` produces a raw `Fact.relation` → **`consolidate` rewrites it via `canonical_relation(relation, vocab)`** (Task 5) → the consolidated `FactSet` is written to `<clip>.facts.json` → `graph` reads ONLY that file and **`graph._w_fact` re-validates via `safe_rel_type`** (Task 6) before interpolating the rel type. There is no code path where a raw relation string reaches Cypher without passing `canonical_relation` then `safe_rel_type`; `safe_rel_type` raising is the final backstop. (Covered by `test_relation_safe_charset` + the round-trip test; `graph` never imports the raw LLM output.)
+- **Phase 1 artifact name is correct.** Phase 1's `diarize_asr` writes `data/work/<clip>.transcript.json`; the integration tests read `data/work/sample2.transcript.json`, which is the real artifact (regenerated via the mlx-whisper path in Phase 1). `extract`/`graph` consume `data/work/<clip>.transcript.json` and produce/consume `data/work/<clip>.facts.json`.
+
 ---
 
 ## File Structure
@@ -171,7 +176,10 @@ git commit -m "feat(extract): turn-boundary chunker with tiktoken ruler + read-o
 - Consumes: `src.contracts.Entity`.
 - Produces:
   - `normalize_name(s)->str` (lower, strip, collapse whitespace), `slugify(s)->str`, `entity_id(label,name)->str` (= `f"{label.lower()}:{slugify(name)}"`), `statement_id(clip,idx)->str` (= `f"stmt:{clip}:{idx}"`).
-  - `canonical_relation(relation, vocab=None)->str` — lexical canonicalization → valid Neo4j rel charset. **Contract for the acceptance case:** expand abbreviations (`min→minimum`, etc.), drop low-content words (`amount`, `value`, `the`, …), join `_` + UPPER, strip to `[A-Z0-9_]` — so `"min investment"` and `"minimum investment amount"` both yield `"MINIMUM_INVESTMENT"`. If `vocab` is given and the result is in it, return it.
+  - `canonical_relation(relation, vocab=None)->str` — canonicalize a relation string to a valid Neo4j rel type. **Contract:**
+    - **Idempotency guard (FIRST):** if `relation` already matches `^[A-Z][A-Z0-9_]*$` (already canonical UPPER_SNAKE), return it unchanged. This makes the canonical vocab a fixed point — every `BASE_ONTOLOGY.relations` entry round-trips to itself, and a model that already emits a canonical type is left alone.
+    - Otherwise: lowercase; expand abbreviations (`min→minimum`, `max→maximum`, `avg→average`, `amt→amount`, …); drop a **minimal, conservative** low-content set — `{a, an, the, of, amount}` ONLY (NOT `value`/`to`/`on`/`number`/etc.: prepositions and generic-but-meaningful nouns can distinguish real relations, e.g. `COMMITTED_TO` vs `COMMITTED`, so they MUST survive); join with `_`, UPPER, strip to `[A-Z0-9_]`.
+    - Result: `"min investment"` and `"minimum investment amount"` both → `"MINIMUM_INVESTMENT"`, while `"min investment"` vs `"max investment"` stay distinct (`MINIMUM_INVESTMENT` vs `MAXIMUM_INVESTMENT`). If `vocab` is given and the result is in it, return it.
   - `safe_rel_type(rel)->str` — returns `rel` if it matches `^[A-Z][A-Z0-9_]*$`, else raises `ValueError`.
   - `class EntityResolver(embed_fn, threshold=0.85)` with `resolve(entities)->tuple[list[Entity], dict[str,str]]` (representative entities + old_id→new_id map).
 - **Intended logic for `EntityResolver.resolve` (build phase):** iterate entities; (1) **exact normalized-name** match → reuse representative; (2) else **embedding fallback** — only against existing reps with the **same `label` AND `type`**, pick the best with cosine ≥ `threshold`; (3) else create a new representative with `id = entity_id(label, name)`. Record every input id → chosen rep id in the map. `embed_fn(list[str])->list[vec]` is injectable so unit tests run without the LLM. Cosine is a small pure helper.
@@ -197,7 +205,18 @@ def test_relation_safe_charset():
     assert safe_rel_type("HAS_VALUE") == "HAS_VALUE"
     with pytest.raises(ValueError):
         safe_rel_type("DROP TABLE; --")
-    assert safe_rel_type(canonical_relation("decides (on) the! plan")) == "DECIDES_PLAN"
+    # "the" dropped; "on" survives (preposition kept); punctuation stripped
+    assert safe_rel_type(canonical_relation("decides (on) the! plan")) == "DECIDES_ON_PLAN"
+
+def test_base_ontology_relations_roundtrip_clean():       # canonical vocab must be a fixed point
+    from src.ontology import BASE_ONTOLOGY
+    for rel in BASE_ONTOLOGY.relations:
+        assert canonical_relation(rel) == rel, f"{rel} must canonicalize to itself"
+
+def test_relations_that_must_not_collapse_stay_distinct():
+    assert canonical_relation("min investment") == "MINIMUM_INVESTMENT"
+    assert canonical_relation("max investment") == "MAXIMUM_INVESTMENT"
+    assert canonical_relation("min investment") != canonical_relation("max investment")
 
 def E(eid, name, typ, label="Entity"):
     return Entity(id=eid, label=label, type=typ, name=name)
@@ -344,11 +363,12 @@ git commit -m "feat(extract): per-clip ontology proposal pass with base fallback
 - Produces:
   - **Contract — `EXTRACT_SCHEMA`** (strict `json_schema` for one chunk's output): an object with `entities[]` (each `{id, label∈{Speaker,Statement,Entity,Claim,Attribute}, type, name}`) and `facts[]` (each `{subject_id, relation, object_id, statement, statement_id, speaker, confidence}`), `additionalProperties:false`, all fields required.
   - `build_prompt(chunk, ontology, clip)->tuple[str,str]` (system, user).
+  - `namespace(entities, facts, index)->tuple[list[Entity],list[Fact]]` — pure; prefix every entity `id` and every fact `subject_id`/`object_id` with `f"c{index}:"` so identical local ids reused across chunks never collide.
   - `consolidate(raw_entities, raw_facts, vocab, threshold, resolver, clip)->FactSet`.
   - `extract(clip, cfg=None, llm=None)->FactSet` — writes `data/work/<clip>.facts.json`; CLI `python -m src.extract <clip>`.
 - **Intended logic (build phase):**
   - `build_prompt`: render each extractable turn as a line `"[{statement_id(clip, idx)}] {speaker}: {text}"`; if `chunk.context` is set, prepend its line tagged `(CONTEXT-ONLY — do not extract, do not cite)`. System prompt biases toward `ontology.entity_types`/`relations` (or "induce sensible …" when `ontology is None`) and states the rules: every fact sets `statement_id` to the tag of its source line; use the entity ids you define; only extract stated facts with a `confidence` in [0,1]; never extract from or cite CONTEXT-ONLY lines.
-  - `_extract_chunk(chunk, ontology, clip, llm)`: call `llm.chat_json(system, user, EXTRACT_SCHEMA)`; on any error, log to stderr and return `([], [])` (partial graph > crash — reported, not silent); namespace returned ids with a `f"c{chunk.index}:"` prefix (entities and the subject/object refs) so cross-chunk ids never collide.
+  - `_extract_chunk(chunk, ontology, clip, llm)`: call `llm.chat_json(system, user, EXTRACT_SCHEMA)`; on any error, log to stderr and return `([], [])` (partial graph > crash — reported, not silent); apply `namespace(entities, facts, chunk.index)` so cross-chunk ids never collide.
   - `consolidate`: `reps, id_map = resolver.resolve(raw_entities)`; for each fact: drop if `confidence < threshold`; remap `subject_id`/`object_id` through `id_map`; drop if either id is not among the reps (ungrounded/dangling); `relation = canonical_relation(relation, vocab)`; dedup on `(subject_id, relation, object_id)`. Return `FactSet(clip, reps, facts)`.
   - `extract`: load transcript → `propose_ontology(full_text, llm)` → `chunk_transcript(utterances, cfg.extract.chunk_tokens)` → `_extract_chunk` per chunk → `consolidate(..., EntityResolver(embed_fn=llm.embed), set(ontology.relations), cfg.extract.confidence_threshold, ..., clip)` → write `<clip>.facts.json`.
 
@@ -357,7 +377,7 @@ git commit -m "feat(extract): per-clip ontology proposal pass with base fallback
 from src.contracts import Entity, Fact, Utterance
 from src.chunking import Chunk
 from src.resolve import EntityResolver
-from src.extract import consolidate, build_prompt
+from src.extract import consolidate, build_prompt, namespace
 
 def _resolver():
     return EntityResolver(embed_fn=lambda xs: [[0.0]] * len(xs))   # exact-name only
@@ -396,15 +416,43 @@ def test_prompt_marks_overlap_context_only_and_tags_statement_ids():
     assert "stmt:pms:2" in user                           # extractable turn tagged with its id
     assert "CONTEXT-ONLY" in user and "stmt:pms:1" in user # overlap turn present but marked
     assert "do not extract" in user.lower() and "do not cite" in user.lower()
+
+def test_confidence_threshold_is_inclusive_at_boundary():     # confidence == threshold is KEPT (drop is strict <)
+    ents = [Entity(id="c0:e1", label="Entity", type="Instrument", name="PMS"),
+            Entity(id="c0:e2", label="Attribute", type="Money", name="50 lakh"),
+            Entity(id="c0:e3", label="Attribute", type="Money", name="1 crore")]
+    at = Fact(subject_id="c0:e1", relation="HAS_VALUE", object_id="c0:e2",
+              statement="x", speaker="S0", confidence=0.6, statement_id="stmt:pms:0")    # == threshold
+    below = Fact(subject_id="c0:e1", relation="HAS_VALUE", object_id="c0:e3",
+                 statement="y", speaker="S0", confidence=0.599, statement_id="stmt:pms:1")  # < threshold
+    fs = consolidate(ents, [at, below], vocab=None, threshold=0.6, resolver=_resolver(), clip="pms")
+    assert [f.object_id for f in fs.facts] == ["attribute:50-lakh"]   # 0.6 kept, 0.599 dropped
+
+def test_consolidate_empty_inputs_yield_valid_empty_factset():
+    fs = consolidate([], [], vocab=None, threshold=0.6, resolver=_resolver(), clip="pms")
+    assert fs.clip == "pms" and fs.entities == [] and fs.facts == []
+
+def test_namespacing_keeps_reused_local_ids_separate():
+    # chunk 0 used local id "e1" for PMS; chunk 1 reused "e1" for AIF — must NOT merge
+    e0, f0 = namespace([Entity(id="e1", label="Entity", type="Instrument", name="PMS")],
+                       [Fact(subject_id="e1", relation="HAS_MIN", object_id="e1",
+                             statement="PMS", speaker="S0", confidence=0.9)], 0)
+    e1, f1 = namespace([Entity(id="e1", label="Entity", type="Instrument", name="AIF")],
+                       [Fact(subject_id="e1", relation="HAS_MIN", object_id="e1",
+                             statement="AIF", speaker="S0", confidence=0.9)], 1)
+    assert e0[0].id == "c0:e1" and e1[0].id == "c1:e1"                 # same local id -> distinct ids
+    assert f0[0].subject_id == "c0:e1" and f1[0].subject_id == "c1:e1"
+    fs = consolidate(e0 + e1, f0 + f1, vocab=None, threshold=0.6, resolver=_resolver(), clip="pms")
+    assert {e.id for e in fs.entities} == {"entity:pms", "entity:aif"} # stayed separate
 ```
 
 - [ ] **Step 2: Run, confirm RED.**
 Run: `source .venv/bin/activate && pytest tests/test_extract.py -v` → FAIL (`No module named 'src.extract'`).
 
-- [ ] **Step 3: Implement** `src/extract.py` per the interfaces + intended logic. Make the 3 unit tests pass.
+- [ ] **Step 3: Implement** `src/extract.py` per the interfaces + intended logic. Make the 6 unit tests pass.
 
 - [ ] **Step 4: Run, confirm GREEN.**
-Run: `source .venv/bin/activate && pytest tests/test_extract.py -v` → 3 PASS.
+Run: `source .venv/bin/activate && pytest tests/test_extract.py -v` → 6 PASS.
 
 - [ ] **Step 5: Add the integration test (marked) — needs LM Studio.** Append:
 ```python
@@ -530,6 +578,21 @@ def test_phase2_end_to_end_sample2():
         with drv.session(database=db) as s:
             after = s.run("MATCH (n) RETURN count(n) AS c").single()["c"]
         assert after == before, "re-upsert created duplicate nodes (not idempotent)"
+    finally:
+        drv.close()
+
+@pytest.mark.integration
+def test_upsert_empty_factset_does_not_crash():
+    """Zero usable facts must still produce a valid (statements-only) graph, no crash."""
+    import os
+    from src.graph import connect, upsert
+    from src.contracts import FactSet, Transcript, Utterance
+    t = Transcript(clip="emptytest", utterances=[Utterance(speaker="S0", text="hello", start=0, end=1)])
+    fs = FactSet(clip="emptytest", entities=[], facts=[])
+    drv = connect()
+    db = os.environ.get("NEO4J_DATABASE", "neo4j")
+    try:
+        assert upsert(fs, t, drv, database=db) == {"statements": 1, "entities": 0, "facts": 0}
     finally:
         drv.close()
 ```
