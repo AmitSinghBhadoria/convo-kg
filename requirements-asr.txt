@@ -1,0 +1,18 @@
+# Isolated AUDIO stack (ASR + diarization) — .venv-asr
+# WhisperX + pyannote need torchaudio's AudioMetaData, which the latest torchaudio (2.11)
+# removed; they also conflict with the newest transformers/huggingface_hub. This is a
+# co-tested, exact-pinned set, VERIFIED to import together and load pyannote (2026-06-26).
+#
+# Build:
+#   uv venv .venv-asr --python 3.12
+#   uv pip install --python .venv-asr -r requirements-asr.txt
+#
+torch==2.2.2
+torchaudio==2.2.2          # has torchaudio.AudioMetaData (pyannote/whisperx need it)
+numpy==1.26.4              # <2: torch 2.2.x is built against numpy 1.x
+transformers==4.40.0       # supports torch 2.2 (newer transformers requires torch>=2.4)
+huggingface_hub==0.25.2    # still exposes use_auth_token (pyannote 3.3.2 calls it; removed in 0.26)
+whisperx==3.3.1            # pins pyannote.audio==3.3.2, faster-whisper==1.1.0, ctranslate2<4.5
+mlx-whisper==0.4.3         # fast dev-loop ASR on Apple Silicon (Metal); torch-independent
+soundfile                  # audio I/O in the worker
+librosa

@@ -1,0 +1,13 @@
+# Isolated DENOISE stack (DeepFilterNet) — .venv-denoise
+# DeepFilterNet 0.5.6 needs torchaudio<2.1 (uses torchaudio.backend), which is
+# incompatible with the ASR stack's torchaudio 2.2. Kept in its own venv, invoked by
+# src/enhance.py as a subprocess. VERIFIED: dev.wav -> 16 kHz mono denoise works.
+#
+# Build (needs the Rust toolchain — deepfilterlib has no py wheel; `brew install rustup` then `rustup-init`):
+#   uv venv .venv-denoise --python 3.11
+#   uv pip install --python .venv-denoise -r requirements-denoise.txt
+#
+torch==2.0.1
+torchaudio==2.0.2          # still has torchaudio.backend (DeepFilterNet 0.5.6 needs it)
+deepfilternet==0.5.6
+soundfile
