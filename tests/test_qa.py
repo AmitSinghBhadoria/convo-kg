@@ -22,3 +22,29 @@ def test_call_allowlist():
     # write / non-allowlisted procs rejected
     assert not is_read_only("CALL apoc.create.node(['X'], {}) YIELD node RETURN node")
     assert not is_read_only("MATCH (n) CALL apoc.refactor.cloneNodes([n]) YIELD output RETURN output")
+
+
+from src.qa import format_schema
+
+
+def test_format_schema_lists_labels_rels_types_and_property_model():
+    s = format_schema(labels=["Entity", "Statement", "Speaker"],
+                      rel_types=["ACHIEVES_GOAL", "REQUIRES_INVESTMENT"],
+                      entity_types=["FinancialGoal", "WealthStrategy"])
+    assert "ACHIEVES_GOAL" in s and "FinancialGoal" in s and "Statement" in s
+    assert "source_statement_id" in s                      # the prompt must know edges carry grounding
+
+
+import pytest
+
+@pytest.mark.integration
+def test_introspect_schema_against_live_graph():
+    import os
+    from src.graph import connect
+    from src.qa import introspect_schema
+    drv = connect()
+    try:
+        s = introspect_schema(drv, os.environ.get("NEO4J_DATABASE", "neo4j"))
+    finally:
+        drv.close()
+    assert "Entity" in s and "Statement" in s               # labels present from the live graph

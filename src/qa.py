@@ -59,3 +59,65 @@ def is_read_only(cypher: str) -> bool:
             return False
 
     return True
+
+
+# ---------------------------------------------------------------------------
+# Schema introspection — Task 3
+# ---------------------------------------------------------------------------
+
+def format_schema(
+    labels: list[str],
+    rel_types: list[str],
+    entity_types: list[str],
+) -> str:
+    """Return a compact schema description for use in LLM Cypher prompts.
+
+    Pure function (no DB access).  Includes the live-discovered labels,
+    relationship types, and entity sub-types, plus the fixed property model
+    for the Atyx knowledge graph so the LLM knows the shape of every node and
+    that fact edges carry ``source_statement_id`` for attribution grounding.
+    """
+    labels_str = ", ".join(f":{lbl}" for lbl in labels) if labels else "(none)"
+    rels_str = ", ".join(rel_types) if rel_types else "(none)"
+    types_str = ", ".join(entity_types) if entity_types else "(none)"
+
+    return (
+        "=== Graph Schema ===\n"
+        f"Node labels: {labels_str}\n"
+        f"Relationship types: {rels_str}\n"
+        f"Entity sub-types (e.type): {types_str}\n"
+        "\n"
+        "Property model:\n"
+        "  :Entity        {id, name, type}\n"
+        "  :Statement     {id, text, speaker, clip, start, end}\n"
+        "  :Speaker       {id, name}\n"
+        "  fact edges     carry source_statement_id (links each relationship to its source Statement)\n"
+        "==================="
+    )
+
+
+def introspect_schema(driver, database: str) -> str:
+    """Query the live Neo4j graph and return a formatted schema string.
+
+    Runs three read queries against *database*:
+    - ``CALL db.labels()`` — all node labels.
+    - ``CALL db.relationshipTypes()`` — all relationship type names.
+    - ``MATCH (e:Entity) RETURN DISTINCT e.type AS type`` — Entity sub-types
+      (null/empty values are filtered out).
+
+    Returns ``format_schema(...)`` with the collected results.
+    """
+    with driver.session(database=database) as session:
+        labels = [r["label"] for r in session.run("CALL db.labels() YIELD label RETURN label")]
+        rel_types = [r["relationshipType"] for r in session.run(
+            "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
+        )]
+        entity_types = [
+            r["type"]
+            for r in session.run(
+                "MATCH (e:Entity) RETURN DISTINCT e.type AS type"
+            )
+            if r["type"]
+        ]
+
+    return format_schema(labels=labels, rel_types=rel_types, entity_types=entity_types)
