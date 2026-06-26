@@ -7,7 +7,11 @@ this is the cheap first line that rejects obviously mutating Cypher before
 it is ever sent to the driver.
 """
 
+import os
 import re
+from typing import Literal
+
+from src.contracts import Provenance, QAResult
 
 # Write clauses that must never appear in generated Cypher.
 _WRITE_CLAUSES = [
@@ -209,8 +213,6 @@ def generate_cypher(
 # Task 5: execution backstop + provenance resolution
 # ---------------------------------------------------------------------------
 
-from src.contracts import Provenance
-
 
 def explain_ok(driver, database: str, cypher: str) -> tuple[bool, str | None]:
     """Plan *cypher* via ``EXPLAIN`` inside a read transaction.
@@ -324,11 +326,6 @@ def resolve_provenance(
 # Task 6: Cypher-path orchestrator (compose_answer, infer_hops, answer)
 # ---------------------------------------------------------------------------
 
-import os
-from typing import Literal
-
-from src.contracts import QAResult
-
 ANSWER_SCHEMA: dict = {
     "type": "object",
     "properties": {"answer": {"type": "string"}},
@@ -378,6 +375,141 @@ def infer_hops(cypher: str) -> Literal["single", "multi"]:
     return "multi" if cypher.count("-[") >= 2 else "single"
 
 
+def augment_schema(
+    driver,
+    database: str,
+    base_schema: str,
+) -> tuple[str, set[str]]:
+    """Augment the base schema text with live graph data for better Cypher generation.
+
+    Adds three sections to *base_schema*:
+    1. Live relationship direction examples (sampled from the graph) so the LLM
+       knows which node types each relationship connects and in which direction.
+    2. Entity name samples grouped by live sub-type so the model can reference
+       actual entity names when filtering.
+    3. CRITICAL SCHEMA RULES — generic, data-driven rules teaching the model
+       that Entity sub-types are *type property values*, not Neo4j labels.
+       The sub-type list is built from the live graph (not hardcoded), and the
+       worked-example queries use schematic ``<PLACEHOLDER>`` names (not demo
+       relationship types or entity names).
+
+    Each section has its own ``try/except`` so a failure in one does not
+    silently suppress the others (especially the CRITICAL RULES block).
+
+    Returns:
+        (augmented_schema_text, known_labels_set)
+        The known-labels set is returned so the caller can reuse it for the
+        label guard without issuing a second ``db.labels()`` query.
+    """
+    schema = base_schema
+    known_labels: set[str] = set()
+    _ent_by_type: dict[str, list[str]] = {}
+
+    # ── Step 1: known labels (single query — reused for CRITICAL RULES + returned) ──
+    try:
+        _label_rows = run_read(
+            driver, database,
+            "CALL db.labels() YIELD label RETURN label",
+        )
+        known_labels = {r["label"] for r in _label_rows}
+    except Exception:
+        pass
+
+    # ── Step 2: relationship direction samples ──
+    try:
+        _rel_samples = run_read(
+            driver, database,
+            "MATCH (a)-[r]->(b) "
+            "RETURN labels(a)[0] AS fl, a.type AS ft, "
+            "       type(r) AS rt, "
+            "       labels(b)[0] AS tl, b.type AS tt "
+            "LIMIT 30",
+        )
+        _seen: set[tuple] = set()
+        _dir_lines: list[str] = []
+        for _row in _rel_samples:
+            _key = (
+                _row.get("fl"), _row.get("ft") or "",
+                _row.get("rt"),
+                _row.get("tl"), _row.get("tt") or "",
+            )
+            if _key not in _seen:
+                _seen.add(_key)
+                _from = (
+                    f":{_row['fl']}{{type:'{_row['ft']}'}}"
+                    if _row.get("ft") else f":{_row['fl']}"
+                )
+                _to = (
+                    f":{_row['tl']}{{type:'{_row['tt']}'}}"
+                    if _row.get("tt") else f":{_row['tl']}"
+                )
+                _dir_lines.append(f"  ({_from})-[:{_row['rt']}]->({_to})")
+        if _dir_lines:
+            schema += (
+                "\n\nRelationship directions (sampled from live graph — "
+                "use ONLY these directions):\n"
+                + "\n".join(_dir_lines)
+            )
+    except Exception:
+        pass
+
+    # ── Step 3: entity name samples by type ──
+    try:
+        _ent_samples = run_read(
+            driver, database,
+            "MATCH (e:Entity) "
+            "RETURN e.type AS type, e.name AS name "
+            "ORDER BY e.type, e.name "
+            "LIMIT 30",
+        )
+        for _e in _ent_samples:
+            _ent_by_type.setdefault(_e["type"], []).append(_e["name"])
+        if _ent_by_type:
+            _ent_lines = [
+                f"  {_t}: {_names}"
+                for _t, _names in _ent_by_type.items()
+            ]
+            schema += (
+                "\n\nEntity names in the graph (use these to filter by name):\n"
+                + "\n".join(_ent_lines)
+            )
+    except Exception:
+        pass
+
+    # ── Step 4: CRITICAL SCHEMA RULES (always append; data-driven sub-type list) ──
+    # Build entity sub-types from live samples; fall back to a generic note.
+    _entity_subtypes_str = (
+        ", ".join(sorted(_ent_by_type))
+        if _ent_by_type
+        else "Entity sub-types (see 'Entity sub-types' in schema above)"
+    )
+    _labels_str = (
+        ", ".join(sorted(known_labels))
+        if known_labels
+        else "Entity, Statement, Speaker"
+    )
+    schema += (
+        "\n\nCRITICAL SCHEMA RULES — violating these causes empty results:\n"
+        f"1. The ONLY valid Neo4j node labels are: {_labels_str}.\n"
+        f"   {_entity_subtypes_str} are NOT Neo4j labels — they are VALUES of the "
+        "'type' property on :Entity nodes.\n"
+        "   CORRECT: (a:Entity {type:'<SUB_TYPE>'})  WRONG: (a:<SUB_TYPE>)\n"
+        "2. Fact edges (see relationship types in schema) connect "
+        "Entity nodes to Entity nodes — NOT to Statement or Speaker nodes.\n"
+        "3. source_statement_id is a STRING PROPERTY on the fact edge. "
+        "Return it as: RETURN r.source_statement_id AS provenance\n"
+        "4. Correct single-hop pattern:\n"
+        "   MATCH (a:Entity {type:'<TYPE_A>'})-[r:<REL_TYPE>]->(b:Entity {type:'<TYPE_B>'})\n"
+        "   RETURN r.source_statement_id AS provenance, a.id, a.name\n"
+        "5. Correct multi-hop pattern:\n"
+        "   MATCH (a:Entity {type:'<TYPE_A>'})-[r1:<REL1>]->(b:Entity {type:'<TYPE_B>'})"
+        "-[r2:<REL2>]->(c:Entity {type:'<TYPE_C>'})\n"
+        "   RETURN r1.source_statement_id AS provenance, a.id, a.name, b.id, b.name"
+    )
+
+    return schema, known_labels
+
+
 def answer(
     question: str,
     llm=None,
@@ -410,105 +542,9 @@ def answer(
         driver = connect()
 
     try:
-        schema = introspect_schema(driver, database)
-
-        # Augment schema with live relationship direction examples so the LLM
-        # knows which node labels each relationship type connects and in which
-        # direction.  This prevents the model from inventing wrong directions
-        # (e.g. Statement→Entity instead of Entity→Entity for fact edges).
-        # Collect known node labels for label-guard below.
-        _known_labels: set[str] = set()
-        try:
-            _label_rows = run_read(
-                driver, database,
-                "CALL db.labels() YIELD label RETURN label"
-            )
-            _known_labels = {r["label"] for r in _label_rows}
-        except Exception:
-            pass
-
-        try:
-            _rel_samples = run_read(
-                driver, database,
-                "MATCH (a)-[r]->(b) "
-                "RETURN labels(a)[0] AS fl, a.type AS ft, "
-                "       type(r) AS rt, "
-                "       labels(b)[0] AS tl, b.type AS tt "
-                "LIMIT 30"
-            )
-            _seen: set[tuple] = set()
-            _dir_lines: list[str] = []
-            for _row in _rel_samples:
-                _key = (
-                    _row.get("fl"), _row.get("ft") or "",
-                    _row.get("rt"),
-                    _row.get("tl"), _row.get("tt") or "",
-                )
-                if _key not in _seen:
-                    _seen.add(_key)
-                    _from = (
-                        f":{_row['fl']}{{type:'{_row['ft']}'}}"
-                        if _row.get("ft") else f":{_row['fl']}"
-                    )
-                    _to = (
-                        f":{_row['tl']}{{type:'{_row['tt']}'}}"
-                        if _row.get("tt") else f":{_row['tl']}"
-                    )
-                    _dir_lines.append(f"  ({_from})-[:{_row['rt']}]->({_to})")
-            if _dir_lines:
-                schema += (
-                    "\n\nRelationship directions (sampled from live graph — "
-                    "use ONLY these directions):\n"
-                    + "\n".join(_dir_lines)
-                )
-
-            # Append entity name samples so the model can reference actual values.
-            _ent_samples = run_read(
-                driver, database,
-                "MATCH (e:Entity) "
-                "RETURN e.type AS type, e.name AS name "
-                "ORDER BY e.type, e.name "
-                "LIMIT 30"
-            )
-            if _ent_samples:
-                _ent_by_type: dict[str, list[str]] = {}
-                for _e in _ent_samples:
-                    _ent_by_type.setdefault(_e["type"], []).append(_e["name"])
-                _ent_lines = [
-                    f"  {_t}: {_names}"
-                    for _t, _names in _ent_by_type.items()
-                ]
-                schema += (
-                    "\n\nEntity names in the graph (use these to filter by name):\n"
-                    + "\n".join(_ent_lines)
-                )
-
-            # Critical clarification: provenance is a STRING property on fact
-            # edges (not a link to/from Statement nodes). Fact edges connect
-            # Entity nodes only.
-            _labels_str = ", ".join(sorted(_known_labels)) if _known_labels else "Entity, Statement, Speaker"
-            schema += (
-                "\n\nCRITICAL SCHEMA RULES — violating these causes empty results:\n"
-                f"1. The ONLY valid Neo4j node labels are: {_labels_str}.\n"
-                "   WealthStrategy, FinancialGoal, AssetClass, MonetaryAmount, TimePeriod "
-                "are NOT labels — they are VALUES of the 'type' property on :Entity nodes.\n"
-                "   CORRECT: (a:Entity {type:'WealthStrategy'})  "
-                "WRONG: (a:WealthStrategy)\n"
-                "2. Fact edges (ACHIEVES_GOAL, HAS_STRATEGY, etc.) connect "
-                "Entity nodes to Entity nodes — NOT to Statement or Speaker nodes.\n"
-                "3. source_statement_id is a STRING PROPERTY on the fact edge. "
-                "Return it as: RETURN r.source_statement_id AS provenance\n"
-                "4. Correct single-hop example: "
-                "MATCH (a:Entity {type:'WealthStrategy'})-[r:ACHIEVES_GOAL]->"
-                "(b:Entity {type:'FinancialGoal'}) "
-                "RETURN r.source_statement_id AS provenance, a.id, a.name\n"
-                "5. Correct multi-hop example: "
-                "MATCH (a:Entity)-[r1:HAS_STRATEGY]->(b:Entity {type:'WealthStrategy'})"
-                "-[r2:ACHIEVES_GOAL]->(c:Entity {type:'FinancialGoal'}) "
-                "RETURN r1.source_statement_id AS provenance, a.id, a.name, b.id, b.name"
-            )
-        except Exception:
-            pass  # Best-effort; fallback to base schema
+        schema, _known_labels = augment_schema(
+            driver, database, introspect_schema(driver, database)
+        )
 
         last_cypher: str | None = None
         error: str | None = None
@@ -534,8 +570,8 @@ def answer(
                     error = (
                         f"Query uses undefined node labels: {sorted(_bad)}. "
                         f"The ONLY valid labels are {sorted(_known_labels)}. "
-                        "Entity sub-types (WealthStrategy, FinancialGoal, etc.) "
-                        "are NOT labels — use :Entity {type:'...'} syntax instead."
+                        "Entity sub-types are NOT labels — "
+                        "use :Entity {type:'<SUB_TYPE>'} syntax instead."
                     )
                     continue
             # Valid Cypher found
