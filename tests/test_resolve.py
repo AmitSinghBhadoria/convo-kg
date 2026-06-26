@@ -20,6 +20,13 @@ def test_relation_safe_charset():
     # "the" dropped; "on" survives (preposition kept); punctuation stripped
     assert safe_rel_type(canonical_relation("decides (on) the! plan")) == "DECIDES_ON_PLAN"
 
+def test_safe_rel_type_rejects_trailing_newline():        # defense-in-depth backstop must be airtight
+    with pytest.raises(ValueError):
+        safe_rel_type("SAID\n")                           # $ would match before \n; \Z must not
+
+def test_canonical_relation_does_not_passthrough_trailing_newline():
+    assert canonical_relation("SAID\n") == "SAID"         # \n must fail the idempotency guard, then strip
+
 def test_base_ontology_relations_roundtrip_clean():       # canonical vocab must be a fixed point
     from src.ontology import BASE_ONTOLOGY
     for rel in BASE_ONTOLOGY.relations:

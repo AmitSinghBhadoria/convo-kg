@@ -68,7 +68,7 @@ _ABBREV_RE = re.compile(
 _STOP_WORDS: frozenset[str] = frozenset({'a', 'an', 'the', 'of', 'amount'})
 
 # Pattern for an already-canonical UPPER_SNAKE relation type.
-_UPPER_SNAKE_RE = re.compile(r'^[A-Z][A-Z0-9_]*$')
+_UPPER_SNAKE_RE = re.compile(r'^[A-Z][A-Z0-9_]*\Z')  # \Z, not $: a trailing newline must NOT pass
 
 
 def canonical_relation(relation: str, vocab=None) -> str:
