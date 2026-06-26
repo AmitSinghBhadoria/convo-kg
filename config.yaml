@@ -1,0 +1,17 @@
+llm:
+  base_url: http://localhost:1234/v1
+  model: qwen/qwen3.5-9b
+  embed_model: text-embedding-nomic-embed-text-v2-moe
+paths:
+  raw: data/raw
+  work: data/work
+  noisy: data/noisy
+  ground_truth: data/ground_truth
+extract:
+  chunk_tokens: 1800
+  overlap_tokens: 200
+  confidence_threshold: 0.6
+eval:
+  snr_levels: [20, 15, 10, 5, 0]
+limits:
+  max_minutes: 15
