@@ -20,3 +20,16 @@ def test_env_override(monkeypatch):
     monkeypatch.setenv("LLM_BASE_URL", "http://example/v1")
     c = load_config("config.yaml")
     assert c.llm.base_url == "http://example/v1"
+
+def test_clip_registry_parses_with_modes():
+    cfg = load_config()
+    clips = cfg.demo.clips
+    assert len(clips) >= 1
+    pms = next(c for c in clips if c.id == "pms")
+    assert pms.mode == "graph"
+    assert pms.label and pms.domain
+    for c in clips:
+        assert c.mode in {"graph", "facts", "live"}, c.mode
+
+def test_uploads_path_present():
+    assert load_config().paths.uploads  # non-empty path string

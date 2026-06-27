@@ -1,6 +1,13 @@
 from pathlib import Path
 import os, yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+class ClipCfg(BaseModel):
+    id: str
+    label: str
+    mode: str            # "graph" | "facts" | "live"
+    domain: str = ""
+    speakers: int = 0
 
 class LLMCfg(BaseModel):
     base_url: str
@@ -8,7 +15,7 @@ class LLMCfg(BaseModel):
     embed_model: str
 
 class Paths(BaseModel):
-    raw: str; work: str; noisy: str; ground_truth: str
+    raw: str; work: str; noisy: str; ground_truth: str; uploads: str
 
 class ExtractCfg(BaseModel):
     chunk_tokens: int; overlap_tokens: int; confidence_threshold: float
@@ -28,6 +35,7 @@ class Limits(BaseModel):
 
 class DemoCfg(BaseModel):
     clip: str = "pms"
+    clips: list[ClipCfg] = Field(default_factory=list)
 
 class Config(BaseModel):
     llm: LLMCfg; paths: Paths; extract: ExtractCfg; eval: EvalCfg; limits: Limits; demo: DemoCfg = DemoCfg()
