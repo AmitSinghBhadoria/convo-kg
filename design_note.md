@@ -171,13 +171,22 @@ the conversation yields little), and some edges are simply wrong (`HAS_MINIMUM_C
 "Affluent HNI Segment"`, occasional self-loops). Chasing this with more prompt tuning is
 fighting the ceiling, so we stopped and measured it instead.
 
-**Consequence for Q&A, and why the demo still holds.** Single-hop Cypher answers correctly
-when it lands on a clean fact (e.g. transparency → *"more transparency and you are more
-engaged"*), and the **statement-grounded semantic fallback** answers the rest from real
-verbatim quotes with speaker attribution — and that path **does not depend on fact-extraction
-quality at all**, only on the reliable transcript. The no-hallucination floor holds
-(off-topic questions decline). So the user-facing Q&A degrades gracefully rather than
-fabricating: grounded-where-it-can, honest-"not-found"-where-it-can't.
+**Consequence for Q&A, and why the demo holds.** Single-hop Cypher answers correctly for the
+facts that are in the graph — "what fee structures does a PMS have?", "who is a PMS meant
+for?", "what strategy does a PMS follow?" all return `mode=cypher` with edge-level source
+provenance (verbatim quote + speaker). Getting there exposed a separate grounding bug worth
+recording: the text-to-Cypher prompt asserted that fact edges connect `:Entity {type:'X'}`
+nodes Entity→Entity, but on the real induced graph the concepts land as `:Attribute` nodes
+and edges are Attribute→Attribute — so the model faithfully wrote `:Entity` queries that
+matched nothing and *every* fact question fell back to semantic search even when the fact
+existed. The prompt was lying about the graph's own structure. Fixed by matching concepts
+**by name with no label** (labels are inconsistent across the messy induced graph). For
+questions whose fact didn't extract (or extracted wrong), the **statement-grounded semantic
+fallback** answers from real verbatim quotes with speaker attribution — a path that **does
+not depend on fact-extraction quality at all**, only on the reliable transcript. The
+no-hallucination floor holds (off-topic questions decline). So the user-facing Q&A degrades
+gracefully: Cypher-with-provenance where the fact exists, grounded-quote fallback where it
+doesn't, honest "not found" where the conversation doesn't cover it.
 
 **Multi-hop** is not reliably achievable here, for two compounding reasons (both the model):
 text-to-Cypher does not reliably navigate 2-hop chains from the schema alone (an earlier
