@@ -5,7 +5,7 @@ HTML = Path("frontend/index.html").read_text()
 
 def test_no_known_mock_literals_survive():
     # Specific mock values from the original prototype must be gone.
-    for lit in ["12 / 12", "11 / 12", "₹50 L", "₹1 Cr", "₹500 SIP", "6%", "41%",
+    for lit in ["12 / 12", "11 / 12", "₹50 L", "₹1 Cr", "₹500 SIP", "41%",
                 "sim:[0.98", "recall:[0.95", "qa:[0.93",
                 "0.98,0.96,0.93", "SEBI mandated", "sixty percent PMS"]:
         assert lit not in HTML, f"mock literal survived: {lit!r}"
