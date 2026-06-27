@@ -12,8 +12,10 @@ product path) — see docs/superpowers/specs/2026-06-27-atyx-convo-kg-phase4-eva
 import json
 from pathlib import Path
 
-from src.contracts import CurvePoint, Provenance, SpotCheckRow, Transcript
+from src.config import load_config
+from src.contracts import CurvePoint, EvalResult, Provenance, SpotCheckRow, Transcript
 from src.evaltools import similarity, transcript_text
+from src.llm import LLM
 from src.qa import compose_answer, top_k_statements
 
 
@@ -120,3 +122,48 @@ def emit_results(curve: list[CurvePoint],
     Path(out_json).write_text(json.dumps(payload, indent=2))
     _render_png(curve, meta, out_png)
     return out_json, out_png
+
+
+def evaluate(cfg=None) -> EvalResult:
+    """Read the six sweep transcripts, build the hero curve, run the
+    transcript-grounded spot-check, emit artifacts. Does not run ASR."""
+    cfg = cfg or load_config()
+    ec = cfg.eval
+    work = Path(cfg.paths.work)
+
+    def _load(name: str) -> Transcript:
+        return Transcript.model_validate_json((work / f"{name}.transcript.json").read_text())
+
+    baseline = _load(f"{ec.clip_prefix}_clean")
+    noisy = {str(s): _load(f"{ec.clip_prefix}_snr{s}") for s in ec.snr_levels}
+    curve = snr_curve(baseline, noisy)
+
+    llm = LLM(cfg.llm)
+    degraded = noisy[str(ec.degraded_snr)]
+    clean_answers = [retrieve_answer(q, baseline, llm) for q in ec.spotcheck_questions]
+    degraded_answers = [retrieve_answer(q, degraded, llm) for q in ec.spotcheck_questions]
+    spotcheck = downstream_spotcheck(ec.spotcheck_questions, clean_answers,
+                                     degraded_answers, ec.degraded_snr)
+
+    meta = {
+        "source_clip": ec.source_clip,
+        "slice_s": [ec.slice_start_s, ec.slice_end_s],
+        "noise": ec.noise_path,
+        "snr_levels": ec.snr_levels,
+        "degraded_snr": ec.degraded_snr,
+        "speakers": sorted({u.speaker for u in baseline.utterances}),
+        "metric": "evaltools.similarity (relative sequence+set fidelity, not WER)",
+    }
+    gt = Path(cfg.paths.ground_truth)
+    gt.mkdir(parents=True, exist_ok=True)
+    emit_results(curve, spotcheck, meta,
+                 str(gt / "snr_results.json"), str(gt / "snr_curve.png"))
+    return EvalResult(curve=curve, spotcheck=spotcheck, meta=meta)
+
+
+if __name__ == "__main__":
+    res = evaluate()
+    print(f"speakers={res.meta['speakers']}  noise={res.meta['noise']}")
+    for p in res.curve:
+        print(f"  SNR {p.snr:>2} dB : similarity {p.similarity:.4f}")
+    print(f"spot-check: {len(res.spotcheck)} questions (clean vs {res.meta['degraded_snr']} dB)")

@@ -1,4 +1,6 @@
 import json
+import pytest
+from pathlib import Path
 from src.contracts import Transcript, Utterance, CurvePoint, SpotCheckRow
 from src.evaluate import snr_curve, retrieve_answer, downstream_spotcheck, emit_results, cliff_index, _y_limits
 
@@ -91,3 +93,21 @@ def test_emit_results_writes_json_and_png_with_both_honesty_labels(tmp_path):
     assert "not the full product path" in data["labels"]["spotcheck"]
     assert "not WER" in data["labels"]["curve"]
     assert pp.exists() and pp.stat().st_size > 0      # a real PNG was rendered
+
+
+@pytest.mark.integration
+def test_evaluate_produces_five_point_curve_over_real_sweep_artifacts():
+    from src.evaluate import evaluate
+    res = evaluate()
+    pts = res.curve
+    assert len(pts) == 5                                  # all 5 SNR points, never fewer
+    assert all(0.0 <= p.similarity <= 1.0 for p in pts)
+    by = {p.snr: p.similarity for p in pts}
+    # LOOSE monotonicity ONLY: the clean end (20 dB) must beat the worst end
+    # (0 dB) and the general trend is downward. NOT strict point-by-point — a
+    # bumpy real curve (e.g. 5 dB slightly above 10 dB from ASR quirks) is valid;
+    # the cliff/shape is the finding, not strict monotonicity.
+    assert by["20"] >= by["0"]
+    assert len(res.spotcheck) >= 2                         # golden questions answered both sides
+    assert Path("data/ground_truth/snr_results.json").exists()
+    assert Path("data/ground_truth/snr_curve.png").exists()
