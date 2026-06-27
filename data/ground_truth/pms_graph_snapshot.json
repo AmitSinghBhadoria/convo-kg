@@ -1,0 +1,1966 @@
+{
+  "nodes": [
+    {
+      "id": "stmt:pms:0",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 0.0,
+        "end": 21.92,
+        "id": "stmt:pms:0",
+        "text": "I also wanted to ask about the PMS or PMSs in general. As Viraj mentioned, we're working with a lot of younger professionals who are now, who have accumulated a certain amount and would now be interested in PMSs. So how do they compare with a mutual fund? White Oak has both. And at what point in their journey should someone start looking at a PMS to add to their portfolio? See, I think this",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "speaker:speaker01",
+      "labels": [
+        "Speaker"
+      ],
+      "props": {
+        "name": "SPEAKER_01",
+        "id": "speaker:speaker01"
+      }
+    },
+    {
+      "id": "stmt:pms:1",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 21.92,
+        "end": 32.5,
+        "id": "stmt:pms:1",
+        "text": "is, I'll tell you something, it's slightly complex, because there are so many misunderstandings or there are so many myths.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "speaker:speaker02",
+      "labels": [
+        "Speaker"
+      ],
+      "props": {
+        "name": "SPEAKER_02",
+        "id": "speaker:speaker02"
+      }
+    },
+    {
+      "id": "stmt:pms:2",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 33.99999999999999,
+        "end": 34.379999999999995,
+        "id": "stmt:pms:2",
+        "text": "So",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:3",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 34.379999999999995,
+        "end": 55.24,
+        "id": "stmt:pms:3",
+        "text": "first let me clarify that there are quite a few mutual funds, which are run as if they are a PMS. And there are quite a few PMS, which someone might say that this is looking like a mutual fund portfolio. So I think there are all types, right? That is one, but broadly speaking, what one would keep in mind is that a PMS is a mutual",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:4",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 55.24,
+        "end": 55.24,
+        "id": "stmt:pms:4",
+        "text": "fund portfolio.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:5",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 55.26,
+        "end": 55.72,
+        "id": "stmt:pms:5",
+        "text": "And",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:6",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 55.72,
+        "end": 55.72,
+        "id": "stmt:pms:6",
+        "text": "that is a product",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:7",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 55.72,
+        "end": 142.06,
+        "id": "stmt:pms:7",
+        "text": "which is meant for affluent HNI. And rightly or wrongly, somewhere the regulatory bent of mind is that people who are more affluent, more HNI or more, you know, richer, richer people, their risk appetite and their understanding of investment products would be of a higher order. Now you might agree or disagree with it, but AIF minimum, AIF minimum 1 crore hai, PMS minimum 50 lakhs hai. Yes. Some minimums kyun kiye jaate hain because these regulations are relatively light touch. I mean, there's nothing in regulation. Which is like touch, frankly, we are very well regulated, but compared to a mutual fund, PMS and AIF regulation is relatively light touch. What it means is that in a PMS or AIF, the fund manager has a lot more latitude. Correct. Nobody tells you what is large cap, what is mid cap, what is small cap. In a mutual fund, it is well defined. Yeah. Correct. Nobody tells like in a PMS or AIF, we can have performance linked fee and performance linked fee, meaning not some hurdle linked performance fee, meaning we just charge some proportion of the alpha that we generate. So if we don't, so we have all these, you know, flat fees, performance linked fees, alpha linked fees, all these things are possible in a PMS or AIF. Third thing, you know, which people don't realize, they always compare on returns. They say that, okay, a PMS should always give higher return than mutual fund. Aisa nahi hoga na, if a PMS is investing, let us say I run a broad portfolio in a PMS and somebody is running a highly concentrated small cap, but in a mutual fund,",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:8",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 142.1,
+        "end": 142.96,
+        "id": "stmt:pms:8",
+        "text": "to",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "speaker:speaker03",
+      "labels": [
+        "Speaker"
+      ],
+      "props": {
+        "name": "SPEAKER_03",
+        "id": "speaker:speaker03"
+      }
+    },
+    {
+      "id": "stmt:pms:9",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 142.96,
+        "end": 152.48,
+        "id": "stmt:pms:9",
+        "text": "uska return zyada ho sakta hai na. Now you can always argue that for a PMS investor, my portfolio is conservative and for a mutual fund investor, a pure small cap portfolio is extremely aggressive.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:10",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 152.78,
+        "end": 153.06,
+        "id": "stmt:pms:10",
+        "text": "Yeah.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:11",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 153.34,
+        "end": 168.68,
+        "id": "stmt:pms:11",
+        "text": "So by and large, the rule is very simple. As narrowly you focus, maine bataya jese what is BSE 500. To BSE 500, which is the market representation, usme jitna narrowly aap focus karenge, utna aapka product zyada high risk, high return ban sakta hai.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:12",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 168.82,
+        "end": 169.26,
+        "id": "stmt:pms:12",
+        "text": "Right.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:13",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 169.4,
+        "end": 227.44,
+        "id": "stmt:pms:13",
+        "text": "So it's not a function of PMS or mutual fund. There are a lot of mutual funds which run like PMS. That's why. I said, correct. So as narrowly you focus, it can create that much of, you know, a volatile risk return combination. The second. So it's not so much about the risk return, actually. It's more about the operational setup, the fee structure, the investment latitude, those things. Like if you ask me in our PMS, for example, in our PMS, we have very high deviation from benchmark. So, which means that we can aim for high alpha, but every once in a while. It can have volatility or fluctuation. Whereas if you see our mutual fund, it's run for retail investors and very conservative. We're running it for consistency. Our mutual fund may have lower alpha than our PMS, but probably it will be a lot more consistent as compared to. Right. Now someone can always say, boss, but your PMS itself is conservative. To uska toh koi limit nahi hai. You can make a PMS with five small cap stocks. Yeah.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:14",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 227.62,
+        "end": 227.62,
+        "id": "stmt:pms:14",
+        "text": "Uska",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:15",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 227.62,
+        "end": 312.38,
+        "id": "stmt:pms:15",
+        "text": "toh koi limit nahi hai. Yeah. Correct. So we run all our funds. We run for consistency of alpha. Maybe in varying degrees, PMS versus mutual fund. We avoid doing anything which is very narrowly focused in the market and hence can result in wild swings or wild fluctuations. The last thing which I'll tell you is that operations wise or in an operating configuration, a PMS is starkly different from a mutual fund. Just simple example. See, a mutual fund is a mass retail vehicle for millions of people. And you know very well that those millions of people are amenable to voting with their feet, meaning voting with the buttons. Right. So kya hota hai, in a mutual fund, every day a lot of money comes in and every day a lot of money goes out. So in a mutual fund, apart from stock picking and portfolio construction, fund management is a big deal, is a big activity. And what will happen is that when times like 2020 come or like even now, you know, say something like when March 2020 comes, theoretically you expect that people should give you money, but they are actually running away. Yeah, never works like that. So everyone. So, you know, in March 2020, people thought that human beings are the next dinosaur. But right now people think humara to amrit ka laane wala hai. Yeah. Right. So it's extreme positions. So mutual funds mein kya hai ki investors ka jo behaviour hai na ye extreme positions ko le kar ke how investor behaviour shapes up",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:16",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 312.38,
+        "end": 313.1,
+        "id": "stmt:pms:16",
+        "text": "and",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:17",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 313.1,
+        "end": 323.66,
+        "id": "stmt:pms:17",
+        "text": "how the fund flows. You know, second thing, you know, five years back you bought a mutual fund. It had ABC, XYZ in the portfolio and the corpus was 500 crores. Hmm. Hmm. Hmm.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:18",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 323.68,
+        "end": 323.68,
+        "id": "stmt:pms:18",
+        "text": "And after",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:19",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 323.68,
+        "end": 328.76,
+        "id": "stmt:pms:19",
+        "text": "10 years it will have ABC, XYZ, it may have the whole zoo and the corpus may be 50 ,000 crores. Correct.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:20",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 329.48,
+        "end": 329.7,
+        "id": "stmt:pms:20",
+        "text": "Yeah. Yeah.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:21",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 330.06,
+        "end": 339.0,
+        "id": "stmt:pms:21",
+        "text": "PMS is not like that. See in a PMS, his portfolio in his demat, your portfolio is in your demat. Right. There may be a day when he is withdrawing, that same day you may be buying.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:22",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 339.24,
+        "end": 339.62,
+        "id": "stmt:pms:22",
+        "text": "Right.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:23",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 339.76,
+        "end": 365.62,
+        "id": "stmt:pms:23",
+        "text": "To inka demat balance bech ke inko paisa dena hai. Or apka paisa deploy kar ke apka demat account credit karna hai. Hmm. So in a mutual fund, the behaviour, his behaviour impacts you, your behaviour impacts me. Right. PMS mein, because the portfolios and the fund flows are segregated, investor behaviour is automatically segregated. Right. That's the major difference.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:24",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 365.92,
+        "end": 365.92,
+        "id": "stmt:pms:24",
+        "text": "I",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:25",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_00",
+        "start": 365.92,
+        "end": 383.64,
+        "id": "stmt:pms:25",
+        "text": "think another way where, moving those buyers right, which keeps in between a mutual fund and the PMS is, I think it's in my experience in the last three years, right. With PMSs, right, people become more and more, the time horizon starts reducing drastically. Hmm. Every six months, every one year, they are like, kya kar raha hai? Hmm.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "speaker:speaker00",
+      "labels": [
+        "Speaker"
+      ],
+      "props": {
+        "name": "SPEAKER_00",
+        "id": "speaker:speaker00"
+      }
+    },
+    {
+      "id": "stmt:pms:26",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 383.64,
+        "end": 383.64,
+        "id": "stmt:pms:26",
+        "text": "If there is a lot",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:27",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_00",
+        "start": 383.64,
+        "end": 384.58,
+        "id": "stmt:pms:27",
+        "text": "of pressure, then they are removed.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:28",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 384.96,
+        "end": 395.42,
+        "id": "stmt:pms:28",
+        "text": "See, that is transparency, because what happens in a PMS, each and every transaction. Exactly. Yes, but 20 -25 years ago, you have a normal phone at home and someone else has",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:29",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 395.42,
+        "end": 395.42,
+        "id": "stmt:pms:29",
+        "text": "a",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:30",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 395.42,
+        "end": 400.3,
+        "id": "stmt:pms:30",
+        "text": "mobile phone. What are the major differences between normal phone and mobile phone? One of the key differences, you got itemized billing.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:31",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_00",
+        "start": 400.6,
+        "end": 400.96,
+        "id": "stmt:pms:31",
+        "text": "Correct.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:32",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 401.76,
+        "end": 402.34,
+        "id": "stmt:pms:32",
+        "text": "Earlier, no",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:33",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 402.34,
+        "end": 402.34,
+        "id": "stmt:pms:33",
+        "text": "one",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:34",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 402.34,
+        "end": 409.22,
+        "id": "stmt:pms:34",
+        "text": "analyzed, itemized billing aaya na, toh kisko phone gaya, kitne bar baat kiya. Yeah. Exactly. PMS is like itemized billing, right? This comes",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:35",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 409.22,
+        "end": 413.94,
+        "id": "stmt:pms:35",
+        "text": "back to that point, transparency sometimes kills you more. Yeah. Yeah. Exactly. It's",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:36",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 413.94,
+        "end": 413.94,
+        "id": "stmt:pms:36",
+        "text": "the",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:37",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 413.94,
+        "end": 414.3,
+        "id": "stmt:pms:37",
+        "text": "same. And",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:38",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_00",
+        "start": 414.3,
+        "end": 417.72,
+        "id": "stmt:pms:38",
+        "text": "experiencing as well. People, maybe, you know, there are people who",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:39",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 417.72,
+        "end": 417.72,
+        "id": "stmt:pms:39",
+        "text": "have",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:40",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_00",
+        "start": 417.72,
+        "end": 431.24,
+        "id": "stmt:pms:40",
+        "text": "not made money in the last one and a half year in a PMS or something. And similar investor has not made money in a mutual fund also. But with mutual funds, relaxed, okay, chalo chal jayega, whatever. With a PMS, it's on your toes, right, what's happening. Yeah, because you",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:41",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 431.24,
+        "end": 442.24,
+        "id": "stmt:pms:41",
+        "text": "can see every transaction. Every month, you can see the bill coming. Correct. Jo bhi cheeje PMS mein ho rahi hai, wo saari cheeje mutual fund mein ho rahi hai. Exactly. Yeah.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:42",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 442.68,
+        "end": 442.98,
+        "id": "stmt:pms:42",
+        "text": "Exactly.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:43",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 443.0,
+        "end": 452.24,
+        "id": "stmt:pms:43",
+        "text": "They are also incurring brokerage and STT. They are also buying and selling. Sometimes when they buy, it may make a gain. Sometimes it may make a loss. Sometimes the stock has fallen. Yeah,",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:44",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 452.3,
+        "end": 452.44,
+        "id": "stmt:pms:44",
+        "text": "right.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:45",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 452.56,
+        "end": 466.72,
+        "id": "stmt:pms:45",
+        "text": "You will still sell it and buy something which has fallen more. Correct. Because you're managing for relative performance. So actually, it's just that, you know, a PMS is like surgery without anesthesia. And in a mutual fund, you can't see. Correct. There's the difference here.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:46",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 467.42,
+        "end": 472.66,
+        "id": "stmt:pms:46",
+        "text": "At one point, should a young investor, let's say somebody who's early 30s, dovdheen crore invest,",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:47",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 472.66,
+        "end": 472.66,
+        "id": "stmt:pms:47",
+        "text": "they're",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:48",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 472.66,
+        "end": 477.36,
+        "id": "stmt:pms:48",
+        "text": "doing fairly well. At what point should they start considering a PMS? Do you think there's",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:49",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 477.36,
+        "end": 477.36,
+        "id": "stmt:pms:49",
+        "text": "a",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:50",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 477.36,
+        "end": 479.1,
+        "id": "stmt:pms:50",
+        "text": "general, this or it can't be?",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:51",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 479.28,
+        "end": 480.86,
+        "id": "stmt:pms:51",
+        "text": "Actually, it's not",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:52",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 480.86,
+        "end": 480.86,
+        "id": "stmt:pms:52",
+        "text": "necessary.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:53",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 481.32,
+        "end": 484.84,
+        "id": "stmt:pms:53",
+        "text": "See, I'll tell you. In India, the corpus",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:54",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 484.84,
+        "end": 484.84,
+        "id": "stmt:pms:54",
+        "text": "of equity",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:55",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 484.84,
+        "end": 492.86,
+        "id": "stmt:pms:55",
+        "text": "mutual funds is 20 -21 lakh crores. But non -promoter, non -institutional, meaning the demat",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:56",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 492.86,
+        "end": 492.86,
+        "id": "stmt:pms:56",
+        "text": "balance of individual",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:57",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 492.86,
+        "end": 502.64,
+        "id": "stmt:pms:57",
+        "text": "people's accounts, by my estimate, it is 35 -40 lakh crores, maybe more. So the reality is that we have a very, very",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:58",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 502.64,
+        "end": 502.64,
+        "id": "stmt:pms:58",
+        "text": "good balance. We have a",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:59",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 502.64,
+        "end": 532.36,
+        "id": "stmt:pms:59",
+        "text": "very big equity culture. So the people who are used to buying and selling equity and, you know, operating their own demat accounts and all, they might find a PMS more relatable rather than selling the entire portfolio and putting it in a mutual fund. Correct? So there is that nuance which one should not forget. So I think it's like this, that, you know, if you're a mutual fund investor and if you're doing fine, there's no reason that, okay, if my corpus becomes big, I should go to PMS. It's just about, you know, the experience. It's the operating platform. You can",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:60",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 532.36,
+        "end": 532.36,
+        "id": "stmt:pms:60",
+        "text": "take PMS in",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:61",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 532.36,
+        "end": 535.04,
+        "id": "stmt:pms:61",
+        "text": "the first crore if",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:62",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 535.04,
+        "end": 535.56,
+        "id": "stmt:pms:62",
+        "text": "it",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:63",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 535.56,
+        "end": 547.74,
+        "id": "stmt:pms:63",
+        "text": "matches your objective. You can be 50 crores and not never buy a PMS and you can be 2 crores and you might want to invest in a PMS because it's more transparency, you're more engaged. There is a potential to have a high risk, high return combination.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:64",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 548.2,
+        "end": 548.64,
+        "id": "stmt:pms:64",
+        "text": "According",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:65",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 548.64,
+        "end": 549.56,
+        "id": "stmt:pms:65",
+        "text": "to me, there",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:66",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 549.56,
+        "end": 549.56,
+        "id": "stmt:pms:66",
+        "text": "are many",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:67",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 549.56,
+        "end": 551.38,
+        "id": "stmt:pms:67",
+        "text": "mutual funds which should",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:68",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 551.38,
+        "end": 551.38,
+        "id": "stmt:pms:68",
+        "text": "not be",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:69",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 551.38,
+        "end": 552.12,
+        "id": "stmt:pms:69",
+        "text": "mutual funds.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:70",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_03",
+        "start": 552.7,
+        "end": 553.14,
+        "id": "stmt:pms:70",
+        "text": "So",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:71",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 553.14,
+        "end": 592.0,
+        "id": "stmt:pms:71",
+        "text": "like people run a very, very narrow sectorally focused fund or, you know, people run like 15 -20 stocks, small cap portfolio. Right. Now this is, see what happens in a mutual fund. At a click of a button, you can buy it. Correct. Sometimes people might buy it just because last three year return is looking very good. But risk return combination, it's not relevant, it's not amenable for a retail investor. It's not amenable for someone who is just starting out. Correct. So what I feel is that for the asset manager, it is important that they put the right product in a PMS platform and the right product in a mutual fund platform and from a customer's perspective. Yeah. Yeah. So",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:72",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_01",
+        "start": 592.0,
+        "end": 592.0,
+        "id": "stmt:pms:72",
+        "text": "it's not like a risk",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "stmt:pms:73",
+      "labels": [
+        "Statement"
+      ],
+      "props": {
+        "speaker": "SPEAKER_02",
+        "start": 592.0,
+        "end": 599.82,
+        "id": "stmt:pms:73",
+        "text": "return profile. It's like that. It's not got to do with whether somebody has 2 crores or 50 crores, I think or 20 lakhs or whatever it is. Right. Yeah.",
+        "clip": "pms"
+      }
+    },
+    {
+      "id": "attribute:pms",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "PMS",
+        "id": "attribute:pms",
+        "type": "InvestmentProduct"
+      }
+    },
+    {
+      "id": "attribute:mutual-fund",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "Mutual Fund",
+        "id": "attribute:mutual-fund",
+        "type": "InvestmentProduct"
+      }
+    },
+    {
+      "id": "entity:aif-regulation",
+      "labels": [
+        "Entity"
+      ],
+      "props": {
+        "name": "AIF Regulation",
+        "id": "entity:aif-regulation",
+        "type": "RegulatoryBody"
+      }
+    },
+    {
+      "id": "attribute:performance-linked-fee",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "Performance Linked Fee",
+        "id": "attribute:performance-linked-fee",
+        "type": "FeeStructure"
+      }
+    },
+    {
+      "id": "entity:affluent-hni-segment",
+      "labels": [
+        "Entity"
+      ],
+      "props": {
+        "name": "Affluent HNI Segment",
+        "id": "entity:affluent-hni-segment",
+        "type": "MarketSegment"
+      }
+    },
+    {
+      "id": "attribute:broad-portfolio-strategy",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "Broad Portfolio Strategy",
+        "id": "attribute:broad-portfolio-strategy",
+        "type": "InvestmentStrategy"
+      }
+    },
+    {
+      "id": "attribute:concentrated-small-cap-strategy",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "Concentrated Small Cap Strategy",
+        "id": "attribute:concentrated-small-cap-strategy",
+        "type": "InvestmentStrategy"
+      }
+    },
+    {
+      "id": "entity:large-cap-segment",
+      "labels": [
+        "Entity"
+      ],
+      "props": {
+        "name": "Large Cap Segment",
+        "id": "entity:large-cap-segment",
+        "type": "MarketSegment"
+      }
+    },
+    {
+      "id": "entity:mid-cap-segment",
+      "labels": [
+        "Entity"
+      ],
+      "props": {
+        "name": "Mid Cap Segment",
+        "id": "entity:mid-cap-segment",
+        "type": "MarketSegment"
+      }
+    },
+    {
+      "id": "entity:small-cap-segment",
+      "labels": [
+        "Entity"
+      ],
+      "props": {
+        "name": "Small Cap Segment",
+        "id": "entity:small-cap-segment",
+        "type": "MarketSegment"
+      }
+    },
+    {
+      "id": "attribute:flat-fee",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "Flat Fee",
+        "id": "attribute:flat-fee",
+        "type": "FeeStructure"
+      }
+    },
+    {
+      "id": "entity:bse-500-segment",
+      "labels": [
+        "Entity"
+      ],
+      "props": {
+        "name": "BSE 500 Segment",
+        "id": "entity:bse-500-segment",
+        "type": "MarketSegment"
+      }
+    },
+    {
+      "id": "attribute:high-deviation-from-benchmark",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "High Deviation from Benchmark",
+        "id": "attribute:high-deviation-from-benchmark",
+        "type": "FeeStructure"
+      }
+    },
+    {
+      "id": "attribute:conservative-strategy",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "Conservative Strategy",
+        "id": "attribute:conservative-strategy",
+        "type": "InvestmentStrategy"
+      }
+    },
+    {
+      "id": "attribute:retail-investors",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "Retail Investors",
+        "id": "attribute:retail-investors",
+        "type": "MarketSegment"
+      }
+    },
+    {
+      "id": "attribute:consistency-of-alpha",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "Consistency of Alpha",
+        "id": "attribute:consistency-of-alpha",
+        "type": "InvestmentStrategy"
+      }
+    },
+    {
+      "id": "attribute:millions-of-people",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "Millions of People",
+        "id": "attribute:millions-of-people",
+        "type": "MarketSegment"
+      }
+    },
+    {
+      "id": "attribute:small-cap-stocks",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "Small Cap Stocks",
+        "id": "attribute:small-cap-stocks",
+        "type": "InvestmentProduct"
+      }
+    },
+    {
+      "id": "attribute:500-crores-corpus",
+      "labels": [
+        "Attribute"
+      ],
+      "props": {
+        "name": "500 Crores Corpus",
+        "id": "attribute:500-crores-corpus",
+        "type": "Portfolio"
+      }
+    }
+  ],
+  "rels": [
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:0",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:2",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:4",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:6",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:14",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:18",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:20",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:22",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:24",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:26",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:29",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:33",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:36",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:39",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:47",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:49",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:52",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:54",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:56",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:58",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:60",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:66",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:68",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker01",
+      "end": "stmt:pms:72",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:1",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:3",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:5",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:7",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:9",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:11",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:13",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:15",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:17",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:19",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:21",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:23",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:28",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:30",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:32",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:34",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:41",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:43",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:45",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:51",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:53",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:55",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:57",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:59",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:61",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:63",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:65",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:67",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:69",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:71",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker02",
+      "end": "stmt:pms:73",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:8",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:10",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:12",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:16",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:35",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:37",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:42",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:44",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:46",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:48",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:50",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:62",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:64",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker03",
+      "end": "stmt:pms:70",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker00",
+      "end": "stmt:pms:25",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker00",
+      "end": "stmt:pms:27",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker00",
+      "end": "stmt:pms:31",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker00",
+      "end": "stmt:pms:38",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "speaker:speaker00",
+      "end": "stmt:pms:40",
+      "type": "SAID",
+      "props": {}
+    },
+    {
+      "start": "attribute:pms",
+      "end": "entity:affluent-hni-segment",
+      "type": "TARGETS_DEMOGRAPHIC",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "PMS is meant for affluent HNI."
+      }
+    },
+    {
+      "start": "attribute:pms",
+      "end": "entity:affluent-hni-segment",
+      "type": "HAS_MINIMUM_CORPUS",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "AIF minimum is 1 crore, PMS minimum is 50 lakhs."
+      }
+    },
+    {
+      "start": "attribute:pms",
+      "end": "attribute:performance-linked-fee",
+      "type": "FEATURES_FEE_STRUCTURE",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "PMS can have performance linked fees."
+      }
+    },
+    {
+      "start": "attribute:pms",
+      "end": "attribute:flat-fee",
+      "type": "FEATURES_FEE_STRUCTURE",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "PMS can have flat fees."
+      }
+    },
+    {
+      "start": "attribute:pms",
+      "end": "attribute:high-deviation-from-benchmark",
+      "type": "FEATURES_FEE_STRUCTURE",
+      "props": {
+        "source_statement_id": "stmt:pms:13",
+        "speaker": "SPEAKER_02",
+        "confidence": 0.95,
+        "statement": "In our PMS, we have very high deviation from benchmark."
+      }
+    },
+    {
+      "start": "attribute:pms",
+      "end": "attribute:small-cap-stocks",
+      "type": "FEATURES_FEE_STRUCTURE",
+      "props": {
+        "source_statement_id": "stmt:pms:13",
+        "speaker": "SPEAKER_02",
+        "confidence": 0.95,
+        "statement": "You can make a PMS with five small cap stocks."
+      }
+    },
+    {
+      "start": "attribute:pms",
+      "end": "attribute:broad-portfolio-strategy",
+      "type": "FOLLOWS_STRATEGY",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "A PMS can run a broad portfolio."
+      }
+    },
+    {
+      "start": "attribute:pms",
+      "end": "attribute:concentrated-small-cap-strategy",
+      "type": "FOLLOWS_STRATEGY",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "A PMS can run a highly concentrated small cap portfolio."
+      }
+    },
+    {
+      "start": "attribute:pms",
+      "end": "attribute:consistency-of-alpha",
+      "type": "FOLLOWS_STRATEGY",
+      "props": {
+        "source_statement_id": "stmt:pms:15",
+        "speaker": "SPEAKER_02",
+        "confidence": 0.95,
+        "statement": "We run all our funds. We run for consistency of alpha."
+      }
+    },
+    {
+      "start": "attribute:pms",
+      "end": "attribute:mutual-fund",
+      "type": "SEGREGATES_FROM",
+      "props": {
+        "source_statement_id": "stmt:pms:0",
+        "speaker": "SPEAKER_01",
+        "confidence": 1.0,
+        "statement": "PMS is compared with a mutual fund."
+      }
+    },
+    {
+      "start": "attribute:mutual-fund",
+      "end": "attribute:retail-investors",
+      "type": "TARGETS_DEMOGRAPHIC",
+      "props": {
+        "source_statement_id": "stmt:pms:13",
+        "speaker": "SPEAKER_02",
+        "confidence": 0.95,
+        "statement": "Our mutual fund, it's run for retail investors and very conservative."
+      }
+    },
+    {
+      "start": "attribute:mutual-fund",
+      "end": "entity:large-cap-segment",
+      "type": "FOLLOWS_STRATEGY",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "Mutual funds are well defined regarding large cap."
+      }
+    },
+    {
+      "start": "attribute:mutual-fund",
+      "end": "entity:mid-cap-segment",
+      "type": "FOLLOWS_STRATEGY",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "Mutual funds are well defined regarding mid cap."
+      }
+    },
+    {
+      "start": "attribute:mutual-fund",
+      "end": "entity:small-cap-segment",
+      "type": "FOLLOWS_STRATEGY",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "Mutual funds are well defined regarding small cap."
+      }
+    },
+    {
+      "start": "attribute:mutual-fund",
+      "end": "attribute:conservative-strategy",
+      "type": "FOLLOWS_STRATEGY",
+      "props": {
+        "source_statement_id": "stmt:pms:13",
+        "speaker": "SPEAKER_02",
+        "confidence": 0.95,
+        "statement": "Our mutual fund, it's run for retail investors and very conservative."
+      }
+    },
+    {
+      "start": "attribute:mutual-fund",
+      "end": "attribute:millions-of-people",
+      "type": "LOCATED_IN_SEGMENT",
+      "props": {
+        "source_statement_id": "stmt:pms:15",
+        "speaker": "SPEAKER_02",
+        "confidence": 0.95,
+        "statement": "A mutual fund is a mass retail vehicle for millions of people."
+      }
+    },
+    {
+      "start": "attribute:broad-portfolio-strategy",
+      "end": "attribute:concentrated-small-cap-strategy",
+      "type": "COMPARES_TO",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "Broad portfolio vs concentrated small cap."
+      }
+    },
+    {
+      "start": "attribute:broad-portfolio-strategy",
+      "end": "entity:large-cap-segment",
+      "type": "IMPACTED_BY_BEHAVIOR",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "Broad portfolio is conservative."
+      }
+    },
+    {
+      "start": "attribute:concentrated-small-cap-strategy",
+      "end": "entity:small-cap-segment",
+      "type": "IMPACTED_BY_BEHAVIOR",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "Concentrated small cap is extremely aggressive."
+      }
+    },
+    {
+      "start": "entity:bse-500-segment",
+      "end": "entity:large-cap-segment",
+      "type": "FOLLOWS_STRATEGY",
+      "props": {
+        "source_statement_id": "stmt:pms:3",
+        "speaker": "SPEAKER_02",
+        "confidence": 1.0,
+        "statement": "BSE 500 represents the market representation."
+      }
+    },
+    {
+      "start": "attribute:500-crores-corpus",
+      "end": "attribute:500-crores-corpus",
+      "type": "HAS_MINIMUM_CORPUS",
+      "props": {
+        "source_statement_id": "stmt:pms:17",
+        "speaker": "SPEAKER_02",
+        "confidence": 0.95,
+        "statement": "Five years back you bought a mutual fund... corpus was 500 crores. 10 years it will have... corpus may be 50,000 crores."
+      }
+    }
+  ]
+}

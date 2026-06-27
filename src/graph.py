@@ -239,3 +239,42 @@ if __name__ == "__main__":
         print("Usage: python -m src.graph <clip>", file=sys.stderr)
         sys.exit(1)
     run(sys.argv[1])
+
+
+# ---------------------------------------------------------------------------
+# Snapshot / restore helpers (crown-jewel protection)
+# ---------------------------------------------------------------------------
+
+def export_graph(driver, database) -> dict:
+    """Export EVERY node and relationship to a plain dict (for deterministic snapshot).
+    Node id is the stable key; the first label + all props are preserved."""
+    with driver.session(database=database) as session:
+        nodes = session.execute_read(lambda tx: [
+            {"id": r["id"], "labels": r["labels"], "props": dict(r["props"])}
+            for r in tx.run("MATCH (n) RETURN n.id AS id, labels(n) AS labels, "
+                            "properties(n) AS props")
+        ])
+        rels = session.execute_read(lambda tx: [
+            {"start": r["s"], "end": r["e"], "type": r["t"], "props": dict(r["props"])}
+            for r in tx.run("MATCH (a)-[r]->(b) RETURN a.id AS s, b.id AS e, "
+                            "type(r) AS t, properties(r) AS props")
+        ])
+    return {"nodes": nodes, "rels": rels}
+
+
+def restore_graph(driver, database, snap: dict, wipe: bool = True) -> None:
+    """Deterministically recreate the graph from an export_graph() snapshot.
+    Immune to extraction nondeterminism — reproduces the EXACT captured state."""
+    with driver.session(database=database) as session:
+        if wipe:
+            session.execute_write(lambda tx: tx.run("MATCH (n) DETACH DELETE n"))
+        for n in snap["nodes"]:
+            label = n["labels"][0]                      # our nodes are single-label
+            session.execute_write(lambda tx, n=n, label=label: tx.run(
+                f"MERGE (x:`{label}` {{id:$id}}) SET x += $props",
+                id=n["id"], props=n["props"]))
+        for r in snap["rels"]:
+            session.execute_write(lambda tx, r=r: tx.run(
+                f"MATCH (a {{id:$s}}), (b {{id:$e}}) "
+                f"MERGE (a)-[rel:`{r['type']}`]->(b) SET rel += $props",
+                s=r["start"], e=r["end"], props=r["props"]))

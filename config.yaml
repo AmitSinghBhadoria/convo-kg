@@ -29,3 +29,5 @@ eval:
     - "Who is a PMS suitable for?"
 limits:
   max_minutes: 15
+demo:
+  clip: pms
