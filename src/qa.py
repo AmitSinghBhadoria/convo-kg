@@ -1,10 +1,13 @@
 """
 qa.py — Natural-language Q&A over the Neo4j knowledge graph.
 
-Phase 3, Task 2: read-only write-clause guard (first gate).
-The database-level read-only transaction (Task 5) is the true enforcement;
-this is the cheap first line that rejects obviously mutating Cypher before
-it is ever sent to the driver.
+Pipeline: introspect + augment schema → generate read-only Cypher → guard
+(is_read_only text reject → EXPLAIN → label guard) → execute in a read-access
+transaction → resolve edge-level provenance → compose a grounded English answer;
+a semantic fallback over statement embeddings answers (with a cosine floor that
+declines off-topic questions) when the Cypher path returns nothing.
+Read-only is enforced in depth: the text guard is the cheap first line, the
+database-level read-access transaction (run_read / explain_ok) is the true backstop.
 """
 
 import os
@@ -682,8 +685,9 @@ def answer(
     run_read → resolve provenance → compose_answer → QAResult.
 
     If no valid Cypher is produced after all retries, OR if the query
-    returns no rows, returns a found=False placeholder (Task 7 replaces
-    this branch with the semantic fallback).
+    returns no rows, falls through to the semantic fallback over statement
+    embeddings (which itself declines with found=False when the best match is
+    below the cosine floor).
 
     Owns the driver lifecycle when driver is None (connect + close).
     """
