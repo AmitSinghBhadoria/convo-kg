@@ -145,7 +145,7 @@ button { font:inherit; }
         <!-- graph -->
         <div style="flex:1; background:#141318; border:1px solid #232228; border-radius:12px; display:flex; flex-direction:column; min-height:0; position:relative;">
           <div style="display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border-bottom:1px solid #232228;">
-            <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579;">Knowledge Graph</span>
+            <span style="display:flex; align-items:baseline; gap:9px;"><span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579;">Knowledge Graph</span><span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.04em; color:#5b5750;">click a node to explore</span></span>
             <div style="display:flex; gap:16px;">
               <span style="display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.08em; color:#8A8579;"><span style="width:8px; height:8px; border-radius:50%; background:#C8A24E;"></span>in answer</span>
               <span style="display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.08em; color:#8A8579;"><span style="width:8px; height:8px; border-radius:50%; background:#26252c; border:1px solid #3A3942;"></span>context</span>
@@ -156,13 +156,17 @@ button { font:inherit; }
               <sc-for list="{{ edges }}" as="e" hint-placeholder-count="6">
                 <g>
                   <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}" style="{{ e.lineStyle }}"></line>
-                  <text x="{{ e.lx }}" y="{{ e.ly }}" text-anchor="middle" style="{{ e.labelStyle }}">{{ e.label }}</text>
+                  <foreignObject x="{{ e.lx }}" y="{{ e.ly }}" width="120" height="14" style="overflow:visible; pointer-events:none;">
+                    <div style="{{ e.labelStyle }}">{{ e.label }}</div>
+                  </foreignObject>
                 </g>
               </sc-for>
               <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="8">
                 <g>
-                  <circle cx="{{ n.cx }}" cy="{{ n.cy }}" r="{{ n.r }}" style="{{ n.dotStyle }}"></circle>
-                  <text x="{{ n.cx }}" y="{{ n.labelY }}" text-anchor="middle" style="{{ n.textStyle }}">{{ n.label }}</text>
+                  <circle cx="{{ n.cx }}" cy="{{ n.cy }}" r="{{ n.r }}" onClick="{{ n.onClick }}" style="{{ n.dotStyle }}"></circle>
+                  <foreignObject x="{{ n.fx }}" y="{{ n.fy }}" width="140" height="20" style="overflow:visible; pointer-events:none;">
+                    <div style="{{ n.textStyle }}">{{ n.label }}</div>
+                  </foreignObject>
                 </g>
               </sc-for>
             </svg>
@@ -195,9 +199,9 @@ button { font:inherit; }
             <div style="align-self:flex-end; max-width:84%; padding:10px 14px; background:#1c1b21; border:1px solid #2b2a31; border-radius:13px 13px 4px 13px; font-size:13px; line-height:1.5; color:#e6e1d8; animation:atyxfade .35s ease both;">{{ m.text }}</div>
           </sc-if>
           <sc-if value="{{ m.isBot }}" hint-placeholder-val="{{ false }}">
-            <div style="align-self:flex-start; max-width:96%; display:flex; flex-direction:column; gap:9px; animation:atyxfade .45s ease both;">
-              <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:31px; font-weight:600; color:#C8A24E; line-height:1.08; letter-spacing:0.01em;">{{ m.main }}</div>
-              <div style="font-size:12.5px; color:#8A8579; line-height:1.6;">{{ m.tail }}</div>
+            <div style="align-self:flex-start; max-width:88%; padding:12px 15px; background:#141318; border:1px solid #232228; border-radius:13px 13px 13px 4px; display:flex; flex-direction:column; gap:8px; animation:atyxfade .45s ease both;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; font-weight:400; color:#ECE8E1; line-height:1.6;">{{ m.main }}</div>
+              <div style="font-size:12px; color:#8A8579; line-height:1.55;">{{ m.tail }}</div>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:1px;">
                 <span style="display:inline-flex; align-items:center; gap:7px; padding:5px 10px; border:1px solid rgba(200,162,78,0.4); border-radius:7px; background:rgba(200,162,78,0.06); font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#C8A24E; letter-spacing:0.05em;">◆ {{ m.source }}</span>
                 <button onClick="{{ m.toggleCypher }}" style="display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid #2b2a31; border-radius:7px; background:none; cursor:pointer; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase; color:#8A8579;">Cypher {{ m.cyArrow }}</button>
@@ -245,11 +249,15 @@ button { font:inherit; }
           <!-- gridlines + y labels -->
           <sc-for list="{{ ylabels }}" as="y" hint-placeholder-count="5">
             <line x1="70" y1="{{ y.y }}" x2="600" y2="{{ y.y }}" stroke="#1c1b21" stroke-width="1"></line>
-            <text x="58" y="{{ y.ty }}" text-anchor="end" style="font-family:'JetBrains Mono',monospace; font-size:10px; fill:#5b5750;">{{ y.label }}</text>
+            <foreignObject x="8" y="{{ y.fy }}" width="50" height="14" style="overflow:visible; pointer-events:none;">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; text-align:right; white-space:nowrap;">{{ y.label }}</div>
+            </foreignObject>
           </sc-for>
           <!-- x labels -->
           <sc-for list="{{ xlabels }}" as="x" hint-placeholder-count="5">
-            <text x="{{ x.x }}" y="322" text-anchor="middle" style="font-family:'JetBrains Mono',monospace; font-size:10.5px; fill:#8A8579;">{{ x.label }}</text>
+            <foreignObject x="{{ x.fx }}" y="310" width="50" height="14" style="overflow:visible; pointer-events:none;">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#8A8579; text-align:center; white-space:nowrap;">{{ x.label }}</div>
+            </foreignObject>
           </sc-for>
           <text x="335" y="348" text-anchor="middle" style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.12em; fill:#5b5750;">SNR (dB) — NOISIER →</text>
           <!-- curve -->
@@ -277,7 +285,7 @@ button { font:inherit; }
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false, streamLines:[], liveFacts:[] };
+  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false, streamLines:[], liveFacts:[], gsel:null };
 
   transcript = [];
 
@@ -371,7 +379,7 @@ class Component extends DCLogic {
     const preset = id ? this.presets.find(x => x.id === id) : null;
     const userText = preset ? preset.q : (this.state.q || '').trim();
     if (!userText) return;
-    this.setState(st => ({ messages:[...st.messages, { role:'user', text:userText }], q:'', asking:true }));
+    this.setState(st => ({ messages:[...st.messages, { role:'user', text:userText }], q:'', asking:true, gsel:null }));
     try {
       const res = await fetch('/api/ask', {
         method:'POST', headers:{ 'Content-Type':'application/json' },
@@ -405,13 +413,17 @@ class Component extends DCLogic {
 
   onKey = (e) => { if(e.key==='Enter') this.ask(null); };
 
-  componentDidUpdate(prevProps, prevState){
-    if(this.tRef.current && this.state.tlines !== prevState.tlines){
+  componentDidUpdate(){
+    // The runtime calls componentDidUpdate(prevProps) only — no prevState — so we
+    // track the previous values on the instance to drive auto-scroll.
+    if(this.tRef.current && this.state.tlines !== this._pTlines){
       this.tRef.current.scrollTop = this.tRef.current.scrollHeight;
     }
-    if(this.chatRef.current && this.state.messages.length !== prevState.messages.length){
+    this._pTlines = this.state.tlines;
+    if(this.chatRef.current && this.state.messages.length !== this._pMsgCount){
       this.chatRef.current.scrollTop = this.chatRef.current.scrollHeight;
     }
+    this._pMsgCount = this.state.messages.length;
   }
 
   tabStyle(active){
@@ -451,16 +463,32 @@ class Component extends DCLogic {
       };
     });
 
+    // Click-to-focus: a selected node lights up its 1-hop neighbourhood.
+    // User selection (gsel) takes precedence over the last-answer highlight.
+    const gsel = st.gsel;
+    let focusIds = null;
+    if (gsel) {
+      focusIds = new Set([gsel]);
+      this.graphEdges.forEach(e => {
+        if (e.from===gsel) focusIds.add(e.to);
+        if (e.to===gsel) focusIds.add(e.from);
+      });
+    }
+    const active = !!focusIds || !!ansObj;
+    const hit = id => focusIds ? focusIds.has(id) : (!!ansObj && inAns.has(id));
+
     const nodes = this.graphNodes.map((n, i) => {
       const shown = i < st.nodes;
-      const gold = !!ansObj && inAns.has(n.id);
-      const dim = !!ansObj && !gold;
+      const gold = hit(n.id);
+      const sel = gsel===n.id;
+      const dim = active && !gold;
       return {
         cx:n.cx, cy:n.cy, label:n.label,
-        r: n.type==='entity' ? 11 : 7,
-        labelY: n.cy + (n.type==='entity' ? 28 : 23),
-        dotStyle:`opacity:${shown?1:0}; fill:${gold?'#C8A24E':'#26252c'}; stroke:${gold?'#C8A24E':'#3A3942'}; stroke-width:1.5; transition:opacity .5s ease, fill .4s ease, stroke .4s ease;`,
-        textStyle:`opacity:${shown?(dim?0.35:1):0}; fill:${gold?'#C8A24E':'#8A8579'}; font-family:'Inter',sans-serif; font-size:12px; font-weight:${gold?'600':'400'}; transition:opacity .5s ease, fill .4s ease;`,
+        r: (n.type==='entity' ? 11 : 7) + (sel ? 2 : 0),
+        fx: n.cx - 70, fy: n.cy + (n.type==='entity' ? 17 : 13),
+        onClick: () => this.setState(s => ({ gsel: s.gsel===n.id ? null : n.id })),
+        dotStyle:`opacity:${shown?1:0}; fill:${gold?'#C8A24E':'#26252c'}; stroke:${gold?'#C8A24E':'#3A3942'}; stroke-width:${sel?2.5:1.5}; cursor:pointer; transition:opacity .5s ease, fill .4s ease, stroke .4s ease, r .2s ease;`,
+        textStyle:`opacity:${shown?(dim?0.3:1):0}; color:${gold?'#C8A24E':'#A8A399'}; font-family:'Inter',sans-serif; font-size:${gold?12.5:12}px; font-weight:${gold?'600':'400'}; text-align:center; line-height:1.1; white-space:nowrap; transition:opacity .5s ease, color .4s ease;`,
       };
     });
 
@@ -469,12 +497,13 @@ class Component extends DCLogic {
       const a = this.graphNodes.find(n => n.id===e.from);
       const b = this.graphNodes.find(n => n.id===e.to);
       const shown = idxOf(e.from) < st.nodes && idxOf(e.to) < st.nodes;
-      const gold = !!ansObj && inAns.has(e.from) && inAns.has(e.to);
+      const gold = focusIds ? (e.from===gsel || e.to===gsel)
+                            : (!!ansObj && inAns.has(e.from) && inAns.has(e.to));
       return {
         x1:a.cx, y1:a.cy, x2:b.cx, y2:b.cy,
-        lineStyle:`opacity:${shown?(gold?1:0.45):0}; stroke:${gold?'#C8A24E':'#2b2a31'}; stroke-width:${gold?1.8:1}; transition:opacity .5s ease, stroke .4s ease;`,
-        label:e.label, lx:(a.cx+b.cx)/2, ly:(a.cy+b.cy)/2 - 5,
-        labelStyle:`opacity:${shown?(gold?0.95:0.28):0}; fill:${gold?'#C8A24E':'#5b5750'}; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:0.08em; transition:opacity .4s ease, fill .4s ease;`,
+        lineStyle:`opacity:${shown?(gold?1:(active?0.18:0.45)):0}; stroke:${gold?'#C8A24E':'#2b2a31'}; stroke-width:${gold?1.8:1}; transition:opacity .5s ease, stroke .4s ease;`,
+        label:e.label, lx:(a.cx+b.cx)/2 - 60, ly:(a.cy+b.cy)/2 - 13,
+        labelStyle:`opacity:${shown?(gold?0.95:(active?0.12:0.28)):0}; color:${gold?'#C8A24E':'#5b5750'}; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:0.08em; text-align:center; white-space:nowrap; transition:opacity .4s ease, color .4s ease;`,
       };
     });
 
@@ -502,8 +531,8 @@ class Component extends DCLogic {
       expVals = {
         hasExp:true,
         simPts,
-        ylabels: [0, 0.25, 0.5, 0.75, 1].map(v => ({ y:py(v), ty:py(v)+3.5, label:v.toFixed(2) })),
-        xlabels: snr.map((s, i) => ({ x:px(i), label:s })),
+        ylabels: [0, 0.25, 0.5, 0.75, 1].map(v => ({ y:py(v), fy:py(v)-6, label:v.toFixed(2) })),
+        xlabels: snr.map((s, i) => ({ fx:px(i)-25, label:String(s) })),
         curveLabel: c.labels.curve,
         spotLabel: c.labels.spotcheck,
         spotRows: c.spotcheck.map(r => ({
