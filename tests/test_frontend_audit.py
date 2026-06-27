@@ -21,7 +21,7 @@ def test_data_fields_are_wired_not_literal_populated():
     # Structural: the controller's data fields must be empty/null literals (filled by
     # fetch), not mock-populated arrays. Proves "no mock survives" beyond known strings.
     import re
-    for field, empty in [("graphNodes", "[]"), ("graphEdges", "[]"), ("chart", "null")]:
+    for field, empty in [("graphNodes", "[]"), ("graphEdges", "[]"), ("chart", "null"), ("transcript", "[]")]:
         m = re.search(rf"\b{field}\s*=\s*([^;\n]+)", HTML)
         assert m, f"{field} declaration not found"
         assert m.group(1).strip() == empty, f"{field} is literal-populated, not wired: {m.group(1)[:40]}"

@@ -98,6 +98,17 @@ button { font:inherit; }
           </sc-for>
         </div>
       </div>
+
+      <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#8a7330; letter-spacing:0.05em; margin-bottom:6px;">live extraction — illustrative; Q&amp;A queries the verified pre-built graph</div>
+          <div style="max-height:100px; overflow-y:auto; display:flex; flex-direction:column;">
+            <sc-for list="{{ liveFacts }}" as="f" hint-placeholder-count="0">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; line-height:1.4; padding:3px 0; border-bottom:1px solid #1e1d24;">{{ f }}</div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
     </div>
 
     <!-- MAIN CANVAS -->
@@ -266,17 +277,9 @@ button { font:inherit; }
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false };
+  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false, streamLines:[], liveFacts:[] };
 
-  transcript = [
-    { sp:'S1', t:'0:08', text:'For PMS, the minimum ticket size is fifty lakhs — as SEBI requires.' },
-    { sp:'S2', t:'0:21', text:'And AIF, the minimum investment is one crore, correct?' },
-    { sp:'S1', t:'0:34', text:'Haan. AIF Category III needs one crore minimum.' },
-    { sp:'S2', t:'0:47', text:'Mutual funds ka kya scene? Client wants to start chhota.' },
-    { sp:'S1', t:'1:02', text:'Mutual funds have no minimum — SIP can start at five hundred rupees.' },
-    { sp:'S1', t:'1:18', text:'For a two-crore portfolio I would suggest sixty percent in PMS, forty in AIF.' },
-    { sp:'S2', t:'1:35', text:'Theek hai — let us finalise the PMS provider by Friday.' },
-  ];
+  transcript = [];
 
   steps = [
     { label:'Speech enhancement', sub:'DeepFilterNet' },
@@ -326,26 +329,38 @@ class Component extends DCLogic {
     return [...place(inner, 120, 95), ...place(outer, 250, 150)];
   }
 
-  componentWillUnmount(){ this.clearTimers(); }
+  componentWillUnmount(){ this.closeStream(); }
 
   clearTimers(){ (this.timers||[]).forEach(clearTimeout); this.timers=[]; if(this.elTimer) clearInterval(this.elTimer); }
 
   startRun = () => {
-    if(this.state.run==='running') return;
-    this.clearTimers();
+    if (this.state.run === 'running') return;
+    this.closeStream();
     this.startTs = Date.now();
-    this.setState({ run:'running', step:0, tlines:0, nodes:0, ans:null, messages:[], elapsed:0 });
-    this.timers = [];
-    const at = (ms, fn) => this.timers.push(setTimeout(fn, ms));
-    at(1100, () => this.setState({ step:1 }));
-    at(2200, () => this.setState({ step:2 }));
-    this.transcript.forEach((_, i) => at(2350 + i*440, () => this.setState({ tlines:i+1 })));
-    at(5600, () => this.setState({ step:3 }));
-    at(6600, () => this.setState({ step:4 }));
-    this.graphNodes.forEach((_, i) => at(6700 + i*230, () => this.setState({ nodes:i+1 })));
-    at(8800, () => { this.clearTimers(); this.setState({ run:'done', step:5 }); });
+    this.setState({ run:'running', step:0, tlines:0, ans:null, messages:this.state.messages, elapsed:0, liveFacts:[], streamLines:[] });
     this.elTimer = setInterval(() => this.setState({ elapsed:(Date.now()-this.startTs)/1000 }), 100);
+    fetch('/api/run', { method:'POST' }).then(r => r.json()).then(({ run_id }) => {
+      this.es = new EventSource(`/api/run/${run_id}/stream`);
+      this.es.addEventListener('stage', e => { const d=JSON.parse(e.data); this.setState({ step:d.index + (d.status==='done'?1:0) }); });
+      this.es.addEventListener('transcript_line', e => { const d=JSON.parse(e.data); this.setState(st => ({ tlines: st.tlines + 1, streamLines: [...st.streamLines, d] })); });
+      this.es.addEventListener('fact', e => { const d=JSON.parse(e.data); this.setState(st => ({ liveFacts:[...(st.liveFacts||[]), d.text] })); });
+      this.es.addEventListener('done', e => { this.finishRun(); });
+      this.es.addEventListener('error', () => { this.finishRun(); });   // transport drop OR app error: don't hang
+    }).catch(() => this.finishRun());
+    // Watchdog: if the stream stalls with no events, finish gracefully so the page stays usable.
+    this.runWatchdog = setTimeout(() => { if (this.state.run === 'running') this.finishRun(); }, 90000);
   };
+
+  finishRun = () => {
+    this.closeStream();
+    this.setState({ run:'done', step:5 });
+  };
+
+  closeStream() {
+    if (this.es) { this.es.close(); this.es = null; }
+    if (this.elTimer) clearInterval(this.elTimer);
+    if (this.runWatchdog) clearTimeout(this.runWatchdog);
+  }
 
   ask = async (id) => {
     const preset = id ? this.presets.find(x => x.id === id) : null;
@@ -418,13 +433,18 @@ class Component extends DCLogic {
       };
     });
 
-    const rows = this.transcript.slice(0, st.tlines).map((l, i) => ({
-      sp:l.sp, t:l.t, text:l.text,
-      chipBg: l.sp==='S1' ? 'rgba(200,162,78,0.14)' : 'rgba(107,138,174,0.16)',
-      chipColor: l.sp==='S1' ? '#C8A24E' : '#9db4d0',
-      rowBg: i===srcLine ? 'rgba(200,162,78,0.08)' : 'transparent',
-      rowBorder: i===srcLine ? 'rgba(200,162,78,0.35)' : 'transparent',
-    }));
+    const spShort = spk => String(spk || '').replace(/SPEAKER_0*(\d+)/, 'S$1');
+    const fmtT = t => { const s = Math.round(Number(t)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+    const rows = (st.streamLines || []).slice(0, st.tlines).map((l, i) => {
+      const sp = spShort(l.speaker || l.sp);
+      return {
+        sp, t: fmtT(l.t), text: l.text,
+        chipBg: sp==='S1' ? 'rgba(200,162,78,0.14)' : 'rgba(107,138,174,0.16)',
+        chipColor: sp==='S1' ? '#C8A24E' : '#9db4d0',
+        rowBg: i===srcLine ? 'rgba(200,162,78,0.08)' : 'transparent',
+        rowBorder: i===srcLine ? 'rgba(200,162,78,0.35)' : 'transparent',
+      };
+    });
 
     const nodes = this.graphNodes.map((n, i) => {
       const shown = i < st.nodes;
@@ -505,6 +525,7 @@ class Component extends DCLogic {
       showEmpty: st.run==='idle',
       notEmpty: st.run!=='idle',
       rows, tRef:this.tRef, nodes, edges,
+      liveFacts: st.liveFacts || [],
 
       notDone: false,            // chat is grounded in the pre-built authoritative graph
       asking: st.asking,

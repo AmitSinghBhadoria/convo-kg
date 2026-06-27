@@ -31,6 +31,15 @@ def test_ask_returns_qaresult_shape():
 
 
 @pytest.mark.integration
+def test_run_stream_emits_stage_and_done():
+    run_id = client.post("/api/run").json()["run_id"]
+    with client.stream("GET", f"/api/run/{run_id}/stream?replay=1") as s:
+        body = "".join(chunk for chunk in s.iter_text())
+    assert "event: stage" in body and "event: done" in body     # pipeline narrated + completed
+    assert "event: transcript_line" in body                      # transcript replayed
+
+
+@pytest.mark.integration
 def test_alignment_gate_golden_question_node_ids_match_graph():
     # The hero payoff (ask -> nodes light up) requires QAResult.graph_node_ids to be
     # byte-identical to /api/graph node ids. Use a GOLDEN demo question that resolves
