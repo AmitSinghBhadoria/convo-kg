@@ -84,10 +84,11 @@ python -m src.diarize_asr pms           # diarize + translate -> data/work/pms.t
 python -m src.extract pms               # induce ontology + extract facts -> data/work/pms.facts.json
 python -m src.graph pms                 # idempotent upsert into Neo4j
 
-# Phase 3 — Ask Atyx (needs LM Studio + Neo4j running)
-python -m src.qa "What did they say about transparency in a PMS?"   # -> Cypher single-hop
-python -m src.qa "How does a PMS differ from a mutual fund?"        # -> statement-grounded fallback
-python -m src.qa "What is the capital of France?"                   # -> declines (no-hallucination floor)
+# Phase 3 — Ask Atyx (needs LM Studio + Neo4j running) — golden demo sequence
+python -m src.qa "What strategy does a PMS follow?"            # -> Cypher single-hop + [source] quote
+python -m src.qa "How does a PMS differ from a mutual fund?"   # -> statement-grounded fallback + [related]
+python -m src.qa "Who is a PMS meant for?"                     # -> Cypher single-hop + [source] quote
+python -m src.qa "What is the capital of France?"             # -> declines (no-hallucination floor)
 ```
 
 The demo clip is **`pms`** — a real ~10-minute, 4-speaker Hinglish conversation about

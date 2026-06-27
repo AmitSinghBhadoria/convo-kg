@@ -188,6 +188,32 @@ no-hallucination floor holds (off-topic questions decline). So the user-facing Q
 gracefully: Cypher-with-provenance where the fact exists, grounded-quote fallback where it
 doesn't, honest "not found" where the conversation doesn't cover it.
 
+**Provenance-quote precision is itself bounded by the extraction ceiling.** The Cypher path
+returns the edge's `source_statement_id` as the grounding quote — but because fact extraction
+on this messy clip sometimes attaches a fact to a related-but-not-cleanest statement, the
+surfaced quote occasionally supports the *topic* (PMS) rather than the *specific* claim. E.g.
+"what strategy does a PMS follow?" answers correctly from the graph but its `[source]` quote
+is the speaker's general PMS-vs-mutual-fund clarification rather than the exact strategy
+sentence. Same root cause as the extraction ceiling; named here so it doesn't surprise a
+reviewer. The fix is the same two-pass / verification path above (tie each fact to its
+tightest supporting statement).
+
+### Live demo sequence (golden path)
+
+Lead from strength, then introduce the boundary deliberately:
+1. **"What strategy does a PMS follow?"** → `mode=cypher` → *Broad Portfolio Strategy,
+   Concentrated Small Cap Strategy, Consistency of Alpha* — with `[source]` speaker quote.
+2. **"How does a PMS differ from a mutual fund?"** → `mode=semantic-fallback` → *"a PMS is
+   like surgery without anesthesia…"* — shows the statement-grounded path with `[related]`
+   quotes (and that the system labels source vs related honestly).
+3. **"Who is a PMS meant for?"** → `mode=cypher` → *Affluent HNI Segment* — with `[source]`
+   quote.
+
+Then, to show the honesty guarantees on purpose: **"What is the capital of France?"** →
+declines (`found=False`, "I couldn't find that in the conversation") — the cosine floor, not
+the LLM, refusing to fabricate. This sequence demonstrates both Q&A paths, real provenance,
+and the no-hallucination floor before the extraction-quality boundary is discussed.
+
 **Multi-hop** is not reliably achievable here, for two compounding reasons (both the model):
 text-to-Cypher does not reliably navigate 2-hop chains from the schema alone (an earlier
 test only passed because the answer was hardcoded into the prompt — that overfitting was
