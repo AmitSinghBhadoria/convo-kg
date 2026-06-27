@@ -6,10 +6,12 @@
 #
 #   ./start.sh             start the demo (restores the graph only if empty)
 #   ./start.sh --restore   force-restore the demo graph from the snapshot first
+#   PORT=8001 ./start.sh   serve on a different port (default 8000)
 #
 # Needs: ./setup.sh already run; Neo4j Desktop + LM Studio running.
 set -euo pipefail
 cd "$(dirname "$0")"
+PORT="${PORT:-8000}"
 
 say()  { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m!! %s\033[0m\n' "$*"; }
@@ -56,6 +58,16 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-say "Serving — http://localhost:8000  (Ctrl-C to stop)"
-( sleep 2; (command -v open >/dev/null && open http://localhost:8000) || true ) &
-exec python -m src.api
+say "Preflight — port ${PORT}"
+if lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
+  PIDS="$(lsof -nP -tiTCP:"${PORT}" -sTCP:LISTEN | tr '\n' ' ')"
+  warn "port ${PORT} is already in use by PID(s): ${PIDS}"
+  warn "free it with:  kill ${PIDS}    or run on another port:  PORT=8001 ./start.sh"
+  die "cannot bind port ${PORT}"
+fi
+ok "port ${PORT} free"
+
+# ---------------------------------------------------------------------------
+say "Serving — http://localhost:${PORT}  (Ctrl-C to stop)"
+( sleep 2; (command -v open >/dev/null && open "http://localhost:${PORT}") || true ) &
+exec uvicorn src.api:app --host 127.0.0.1 --port "${PORT}"
