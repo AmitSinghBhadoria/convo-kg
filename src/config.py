@@ -26,8 +26,11 @@ class EvalCfg(BaseModel):
 class Limits(BaseModel):
     max_minutes: int
 
+class DemoCfg(BaseModel):
+    clip: str = "pms"
+
 class Config(BaseModel):
-    llm: LLMCfg; paths: Paths; extract: ExtractCfg; eval: EvalCfg; limits: Limits
+    llm: LLMCfg; paths: Paths; extract: ExtractCfg; eval: EvalCfg; limits: Limits; demo: DemoCfg = DemoCfg()
 
 def load_config(path: str = "config.yaml") -> Config:
     data = yaml.safe_load(Path(path).read_text())

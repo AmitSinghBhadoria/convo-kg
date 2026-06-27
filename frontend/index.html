@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./assets/vendor/react.production.min.js"></script>
+<script src="./assets/vendor/react-dom.production.min.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#080A0D">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#080A0D"/>
+    <circle cx="600" cy="330" r="150" fill="none" stroke="#1A2D3F" stroke-width="2"/>
+    <circle cx="480" cy="300" r="13" fill="#3D566E"/>
+    <circle cx="600" cy="330" r="15" fill="#C8A84B"/>
+    <circle cx="720" cy="300" r="13" fill="#3D566E"/>
+    <circle cx="540" cy="430" r="13" fill="#3D566E"/>
+    <line x1="480" y1="300" x2="600" y2="330" stroke="#C8A84B" stroke-width="2"/>
+    <line x1="600" y1="330" x2="720" y2="300" stroke="#3D566E" stroke-width="2"/>
+    <line x1="600" y1="330" x2="540" y2="430" stroke="#3D566E" stroke-width="2"/>
+    <text x="600" y="560" text-anchor="middle" font-family="Georgia, serif" font-size="86" font-weight="600" fill="#F0EBE0">Atyx<tspan fill="#C8A84B">.</tspan></text>
+    <text x="600" y="610" text-anchor="middle" font-family="monospace" font-size="20" letter-spacing="6" fill="#6B8299">CONVO-KG</text>
+  </svg>
+</template>
+<x-dc>
+<helmet>
+<style>
+@keyframes atyxpulse { 0%,100%{ box-shadow:0 0 0 0 rgba(200,162,78,0.55);} 60%{ box-shadow:0 0 0 6px rgba(200,162,78,0);} }
+@keyframes atyxblink { 0%,100%{ opacity:1;} 50%{ opacity:0.25;} }
+@keyframes atyxfade { from{ opacity:0; transform:translateY(4px);} to{ opacity:1; transform:none;} }
+* { box-sizing:border-box; }
+::-webkit-scrollbar { width:8px; height:8px; }
+::-webkit-scrollbar-thumb { background:#26252c; border-radius:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+input::placeholder { color:#5b5750; }
+button { font:inherit; }
+</style>
+</helmet>
+
+<div style="width:100%; height:100vh; min-height:680px; background-color:#080A0D; background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1920' height='1080'%3E%3Cg fill='none' stroke='%23C8A84B' stroke-width='1.4' opacity='0.22'%3E%3Cpath d='M425 206v24M413 218h24'/%3E%3Cpath d='M1528 358v24M1516 370h24'/%3E%3Cpath d='M1505 665v24M1493 677h24'/%3E%3C/g%3E%3C/svg%3E&quot;), linear-gradient(rgba(200,168,75,0.032) 1px, transparent 1px), linear-gradient(90deg, rgba(200,168,75,0.032) 1px, transparent 1px), linear-gradient(rgba(200,168,75,0.013) 1px, transparent 1px), linear-gradient(90deg, rgba(200,168,75,0.013) 1px, transparent 1px), radial-gradient(125% 88% at 50% 42%, rgba(14,28,46,0.92) 0%, rgba(12,20,32,0.55) 44%, rgba(8,10,13,0) 80%); background-size:100% 100%, 80px 80px, 80px 80px, 16px 16px, 16px 16px, 100% 100%; background-repeat:no-repeat, repeat, repeat, repeat, repeat, no-repeat; color:#ECE8E1; font-family:'Inter',sans-serif; display:flex; flex-direction:column; overflow:hidden;">
+
+  <!-- TOP BAR -->
+  <div style="height:58px; flex:0 0 58px; display:flex; align-items:center; justify-content:space-between; padding:0 26px; border-bottom:1px solid #232228;">
+    <div style="display:flex; align-items:center; gap:16px;">
+      <span style="font-family:'Cormorant Garamond',Georgia,serif; font-size:25px; font-weight:600; letter-spacing:0.005em; line-height:1;">Atyx<span style="color:#C8A24E;">.</span></span>
+      <span style="width:1px; height:18px; background:#2b2a31;"></span>
+      <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:#8A8579;">Convo&#8209;KG</span>
+    </div>
+    <div style="display:flex; gap:4px; padding:4px; background:#101015; border:1px solid #232228; border-radius:9px;">
+      <button onClick="{{ onConsole }}" style="{{ consoleTabStyle }}">Console</button>
+      <button onClick="{{ onExperiment }}" style="{{ expTabStyle }}">Experiment</button>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.3em; color:#3a3942;">·····</span>
+      <span style="display:flex; align-items:center; gap:7px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:#8A8579;">
+        <span style="width:7px; height:7px; border-radius:50%; background:#C8A24E; animation:atyxblink 2.2s ease-in-out infinite;"></span>live
+      </span>
+    </div>
+  </div>
+
+  <!-- ============ CONSOLE ============ -->
+  <sc-if value="{{ isConsole }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="Console" style="flex:1; min-height:0; display:grid; grid-template-columns:264px 1fr 372px;">
+
+    <!-- LEFT RAIL -->
+    <div style="border-right:1px solid #232228; padding:22px 20px; display:flex; flex-direction:column; gap:22px; overflow-y:auto;">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579; margin-bottom:10px;">Clip</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 13px; background:#141318; border:1px solid #232228; border-radius:10px;">
+          <div>
+            <div style="font-size:13.5px; color:#ECE8E1; font-weight:500;">PMS&#8209;advisory.wav</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#5b5750; margin-top:3px; letter-spacing:0.04em;">1:35 · 16 kHz · 2 spk</div>
+          </div>
+          <span style="color:#5b5750; font-size:12px;">▾</span>
+        </div>
+      </div>
+
+      <button onClick="{{ onRun }}" disabled="{{ runDisabled }}" style="{{ runStyle }}">{{ runLabel }}</button>
+
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579; margin-bottom:16px;">Pipeline</div>
+        <div style="display:flex; flex-direction:column;">
+          <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+            <div style="display:flex; gap:13px; align-items:flex-start; min-height:46px;">
+              <div style="display:flex; flex-direction:column; align-items:center; align-self:stretch;">
+                <span style="{{ s.dotStyle }}"></span>
+                <span style="width:1px; flex:1; background:#232228; margin-top:3px;"></span>
+              </div>
+              <div style="padding-bottom:18px;">
+                <div style="font-size:13px; font-weight:500; color:{{ s.labelColor }}; transition:color .3s ease;">{{ s.label }}</div>
+                <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:{{ s.subColor }}; margin-top:3px; letter-spacing:0.03em; transition:color .3s ease;">{{ s.sub }}</div>
+                <sc-if value="{{ s.showElapsed }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#C8A24E; margin-top:5px; letter-spacing:0.05em;">{{ s.elapsed }} elapsed</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#8a7330; letter-spacing:0.05em; margin-bottom:6px;">live extraction — illustrative; Q&amp;A queries the verified pre-built graph</div>
+          <div style="max-height:100px; overflow-y:auto; display:flex; flex-direction:column;">
+            <sc-for list="{{ liveFacts }}" as="f" hint-placeholder-count="0">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; line-height:1.4; padding:3px 0; border-bottom:1px solid #1e1d24;">{{ f }}</div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- MAIN CANVAS -->
+    <div style="padding:20px 22px; display:flex; flex-direction:column; gap:16px; min-height:0;">
+
+      <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center;">
+          <div style="width:54px; height:54px; border:1px solid #2b2a31; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#3a3942; font-size:20px; margin-bottom:6px;">↑</div>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:34px; font-weight:500; color:#ECE8E1; letter-spacing:0.01em;">Drop a conversation to begin.</div>
+          <div style="font-size:13px; color:#5b5750;">or press <span style="color:#C8A24E;">Run live</span> to replay the sample clip.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ false }}">
+        <!-- transcript -->
+        <div style="flex:0 0 37%; background:#141318; border:1px solid #232228; border-radius:12px; display:flex; flex-direction:column; min-height:0;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border-bottom:1px solid #232228;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579;">Transcript</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.1em; color:#5b5750;">Hinglish → English</span>
+          </div>
+          <div ref="{{ tRef }}" style="flex:1; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:2px;">
+            <sc-for list="{{ rows }}" as="l" hint-placeholder-count="3">
+              <div style="display:flex; gap:12px; padding:9px 11px; border-radius:9px; border:1px solid {{ l.rowBorder }}; background:{{ l.rowBg }}; transition:background .4s ease, border-color .4s ease; animation:atyxfade .4s ease both;">
+                <span style="flex:0 0 auto; height:21px; padding:0 9px; display:inline-flex; align-items:center; border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:500; letter-spacing:0.06em; background:{{ l.chipBg }}; color:{{ l.chipColor }};">{{ l.sp }}</span>
+                <div style="flex:1;">
+                  <div style="font-size:13.5px; line-height:1.55; color:#d9d4cb;">{{ l.text }}</div>
+                  <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; margin-top:4px; letter-spacing:0.05em;">{{ l.t }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- graph -->
+        <div style="flex:1; background:#141318; border:1px solid #232228; border-radius:12px; display:flex; flex-direction:column; min-height:0; position:relative;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border-bottom:1px solid #232228;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579;">Knowledge Graph</span>
+            <div style="display:flex; gap:16px;">
+              <span style="display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.08em; color:#8A8579;"><span style="width:8px; height:8px; border-radius:50%; background:#C8A24E;"></span>in answer</span>
+              <span style="display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.08em; color:#8A8579;"><span style="width:8px; height:8px; border-radius:50%; background:#26252c; border:1px solid #3A3942;"></span>context</span>
+            </div>
+          </div>
+          <div style="flex:1; min-height:0; padding:6px;">
+            <svg viewBox="0 0 720 430" preserveAspectRatio="xMidYMid meet" style="width:100%; height:100%;">
+              <sc-for list="{{ edges }}" as="e" hint-placeholder-count="6">
+                <g>
+                  <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}" style="{{ e.lineStyle }}"></line>
+                  <text x="{{ e.lx }}" y="{{ e.ly }}" text-anchor="middle" style="{{ e.labelStyle }}">{{ e.label }}</text>
+                </g>
+              </sc-for>
+              <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="8">
+                <g>
+                  <circle cx="{{ n.cx }}" cy="{{ n.cy }}" r="{{ n.r }}" style="{{ n.dotStyle }}"></circle>
+                  <text x="{{ n.cx }}" y="{{ n.labelY }}" text-anchor="middle" style="{{ n.textStyle }}">{{ n.label }}</text>
+                </g>
+              </sc-for>
+            </svg>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- RIGHT PANEL — CHAT -->
+    <div style="border-left:1px solid #232228; display:flex; flex-direction:column; min-height:0;">
+      <div style="flex:0 0 auto; padding:17px 20px 14px; border-bottom:1px solid #1c1b21; display:flex; align-items:center; justify-content:space-between;">
+        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#C8A24E;">Ask Atyx</span>
+        <span style="display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.1em; color:#5b5750;"><span style="width:6px; height:6px; border-radius:50%; background:#C8A24E;"></span>graph&#8209;grounded</span>
+      </div>
+
+      <div ref="{{ chatRef }}" style="flex:1; min-height:0; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:16px;">
+        <sc-if value="{{ chatEmpty }}" hint-placeholder-val="{{ true }}">
+          <div style="margin:auto 0; display:flex; flex-direction:column; gap:16px;">
+            <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:24px; font-style:italic; color:#3a3942; line-height:1.3;">{{ emptyPrompt }}</div>
+            <div style="display:flex; flex-direction:column; gap:7px; {{ suggestGate }}">
+              <sc-for list="{{ suggestions }}" as="p" hint-placeholder-count="3">
+                <button onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.q }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-for list="{{ chat }}" as="m" hint-placeholder-count="0">
+          <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+            <div style="align-self:flex-end; max-width:84%; padding:10px 14px; background:#1c1b21; border:1px solid #2b2a31; border-radius:13px 13px 4px 13px; font-size:13px; line-height:1.5; color:#e6e1d8; animation:atyxfade .35s ease both;">{{ m.text }}</div>
+          </sc-if>
+          <sc-if value="{{ m.isBot }}" hint-placeholder-val="{{ false }}">
+            <div style="align-self:flex-start; max-width:96%; display:flex; flex-direction:column; gap:9px; animation:atyxfade .45s ease both;">
+              <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:31px; font-weight:600; color:#C8A24E; line-height:1.08; letter-spacing:0.01em;">{{ m.main }}</div>
+              <div style="font-size:12.5px; color:#8A8579; line-height:1.6;">{{ m.tail }}</div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:1px;">
+                <span style="display:inline-flex; align-items:center; gap:7px; padding:5px 10px; border:1px solid rgba(200,162,78,0.4); border-radius:7px; background:rgba(200,162,78,0.06); font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#C8A24E; letter-spacing:0.05em;">◆ {{ m.source }}</span>
+                <button onClick="{{ m.toggleCypher }}" style="display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid #2b2a31; border-radius:7px; background:none; cursor:pointer; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase; color:#8A8579;">Cypher {{ m.cyArrow }}</button>
+              </div>
+              <sc-if value="{{ m.cypherOpen }}" hint-placeholder-val="{{ false }}">
+                <pre style="margin:2px 0 0; padding:12px; background:#0a0a0c; border:1px solid #232228; border-radius:9px; font-family:'JetBrains Mono',monospace; font-size:11.5px; line-height:1.7; color:#9db4d0; white-space:pre-wrap; overflow-x:auto; animation:atyxfade .3s ease both;">{{ m.cypher }}</pre>
+              </sc-if>
+            </div>
+          </sc-if>
+        </sc-for>
+        <sc-if value="{{ asking }}" hint-placeholder-val="{{ false }}">
+          <div style="align-self:flex-start; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.12em; color:#C8A24E;">Atyx is thinking<span style="animation:atyxblink 1s infinite;">…</span></div>
+        </sc-if>
+      </div>
+
+      <div style="flex:0 0 auto; padding:13px 18px 18px; border-top:1px solid #1c1b21;">
+        <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size:11.5px; color:#5b5750; line-height:1.5; margin-bottom:10px;">Run the pipeline to ground the chat in the graph.</div>
+        </sc-if>
+        <div style="display:flex; gap:8px; {{ inputGate }}">
+          <input value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onKey }}" placeholder="Message Atyx…" style="flex:1; padding:12px 14px; background:#0d0d11; border:1px solid #232228; border-radius:11px; color:#ECE8E1; font-size:13px; outline:none;" />
+          <button onClick="{{ onAsk }}" aria-label="Send" style="flex:0 0 auto; width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:#C8A24E; border:none; border-radius:11px; color:#0A0A0C; font-size:17px; font-weight:600; cursor:pointer;">↑</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ EXPERIMENT ============ -->
+  <sc-if value="{{ isExperiment }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Experiment" style="flex:1; min-height:0; overflow-y:auto; display:flex; justify-content:center; padding:46px 30px;">
+    <div style="width:100%; max-width:860px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:#8A8579; margin-bottom:14px;">Experiment · SNR Degradation Study</div>
+      <h1 style="font-family:'Cormorant Garamond',Georgia,serif; font-size:38px; font-weight:600; margin:0 0 10px; letter-spacing:0.005em; line-height:1.1;">Where the pipeline breaks under noise</h1>
+      <p style="font-size:14.5px; color:#8A8579; line-height:1.65; max-width:620px; margin:0 0 34px;">The same sample clip, degraded with café babble at controlled signal-to-noise ratios. One metric measured: transcript similarity (cosine) vs clean reference.</p>
+
+      <sc-if value="{{ hasExp }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#141318; border:1px solid #232228; border-radius:14px; padding:26px 28px 22px;">
+        <!-- legend -->
+        <div style="display:flex; gap:24px; margin-bottom:18px; flex-wrap:wrap;">
+          <span style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#9db4d0;"><span style="width:18px; height:2px; background:#6B8AAE;"></span>Transcript similarity</span>
+        </div>
+
+        <svg viewBox="0 0 640 360" style="width:100%; height:auto;">
+          <!-- gridlines + y labels -->
+          <sc-for list="{{ ylabels }}" as="y" hint-placeholder-count="5">
+            <line x1="70" y1="{{ y.y }}" x2="600" y2="{{ y.y }}" stroke="#1c1b21" stroke-width="1"></line>
+            <text x="58" y="{{ y.ty }}" text-anchor="end" style="font-family:'JetBrains Mono',monospace; font-size:10px; fill:#5b5750;">{{ y.label }}</text>
+          </sc-for>
+          <!-- x labels -->
+          <sc-for list="{{ xlabels }}" as="x" hint-placeholder-count="5">
+            <text x="{{ x.x }}" y="322" text-anchor="middle" style="font-family:'JetBrains Mono',monospace; font-size:10.5px; fill:#8A8579;">{{ x.label }}</text>
+          </sc-for>
+          <text x="335" y="348" text-anchor="middle" style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.12em; fill:#5b5750;">SNR (dB) — NOISIER →</text>
+          <!-- curve -->
+          <polyline points="{{ simPts }}" fill="none" stroke="#6B8AAE" stroke-width="1.6" stroke-opacity="0.85" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        </svg>
+
+        <div style="margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#6B8299; letter-spacing:0.06em;">{{ curveLabel }}</div>
+      </div>
+
+      <div style="margin-top:22px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#8a7330; letter-spacing:0.05em;">{{ spotLabel }}</div>
+      <sc-for list="{{ spotRows }}" as="r" hint-placeholder-count="3">
+        <div style="margin-top:12px; padding:12px; border:1px solid #232228; border-radius:9px;">
+          <div style="color:#ECE8E1; font-size:13px; margin-bottom:6px;">{{ r.question }}</div>
+          <div style="color:#8A8579; font-size:12px;">clean → {{ r.clean }}</div>
+          <div style="color:#8A8579; font-size:12px;">{{ r.degradedSnr }} → {{ r.degraded }}</div>
+        </div>
+      </sc-for>
+      </sc-if>
+      <div style="height:30px;"></div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false, streamLines:[], liveFacts:[] };
+
+  transcript = [];
+
+  steps = [
+    { label:'Speech enhancement', sub:'DeepFilterNet' },
+    { label:'Diarization', sub:'pyannote 3.x' },
+    { label:'Transcribe · Hinglish→EN', sub:'Whisper large-v3' },
+    { label:'Fact extraction', sub:'Qwen 9B · 4-bit' },
+    { label:'Graph build', sub:'Neo4j · Cypher' },
+  ];
+
+  graphNodes = [];
+  graphEdges = [];
+
+  presets = [
+    { id:'pms', q:'What is the minimum investment for PMS?' },
+    { id:'aif', q:'And the minimum for AIF?' },
+    { id:'mf', q:'Which product has no minimum?' },
+  ];
+
+  chart = null;
+
+  tRef = React.createRef();
+  chatRef = React.createRef();
+
+  componentDidMount() {
+    fetch('/api/graph').then(r => r.json()).then(g => {
+      this.graphNodes = this.layoutNodes(g.nodes);
+      this.graphEdges = g.edges.map(e => ({ from:e.from, to:e.to, label:e.relation }));
+      this.setState(st => ({ nodes: this.graphNodes.length }));   // reveal all nodes
+    }).catch(() => {});
+    fetch('/api/experiment').then(r => r.json()).then(ex => {
+      this.chart = ex; this.forceUpdate();
+    }).catch(() => {});
+  }
+
+  layoutNodes(nodes) {
+    // Deterministic radial layout in the ~680x400 SVG: entities on an inner ring,
+    // attributes/claims on an outer ring. Stable (no animation jitter), readable;
+    // highlight correctness does not depend on positions.
+    const cx0 = 345, cy0 = 200;
+    const inner = nodes.filter(n => n.label === 'Entity');
+    const outer = nodes.filter(n => n.label !== 'Entity');
+    const place = (arr, rx, ry) => arr.map((n, i) => {
+      const a = (2 * Math.PI * i) / Math.max(arr.length, 1) - Math.PI / 2;
+      return { id:n.id, label:n.name, type:(n.label === 'Entity' ? 'entity' : 'attr'),
+               cx: cx0 + rx * Math.cos(a), cy: cy0 + ry * Math.sin(a) };
+    });
+    return [...place(inner, 120, 95), ...place(outer, 250, 150)];
+  }
+
+  componentWillUnmount(){ this.closeStream(); }
+
+  clearTimers(){ (this.timers||[]).forEach(clearTimeout); this.timers=[]; if(this.elTimer) clearInterval(this.elTimer); }
+
+  startRun = () => {
+    if (this.state.run === 'running') return;
+    this.closeStream();
+    this.startTs = Date.now();
+    this.setState({ run:'running', step:0, tlines:0, ans:null, messages:this.state.messages, elapsed:0, liveFacts:[], streamLines:[] });
+    this.elTimer = setInterval(() => this.setState({ elapsed:(Date.now()-this.startTs)/1000 }), 100);
+    fetch('/api/run', { method:'POST' }).then(r => r.json()).then(({ run_id }) => {
+      this.es = new EventSource(`/api/run/${run_id}/stream`);
+      this.es.addEventListener('stage', e => { const d=JSON.parse(e.data); this.setState({ step:d.index + (d.status==='done'?1:0) }); });
+      this.es.addEventListener('transcript_line', e => { const d=JSON.parse(e.data); this.setState(st => ({ tlines: st.tlines + 1, streamLines: [...st.streamLines, d] })); });
+      this.es.addEventListener('fact', e => { const d=JSON.parse(e.data); this.setState(st => ({ liveFacts:[...(st.liveFacts||[]), d.text] })); });
+      this.es.addEventListener('done', e => { this.finishRun(); });
+      this.es.addEventListener('error', (e) => {
+        if (e && e.data) {
+          try { const d = JSON.parse(e.data); this.setState(st => ({ liveFacts:[...(st.liveFacts || []), 'error: ' + (d.message || 'stream error')] })); } catch (_) {}
+        }
+        this.finishRun();
+      });
+    }).catch(() => this.finishRun());
+    // Watchdog: if the stream stalls with no events, finish gracefully so the page stays usable.
+    this.runWatchdog = setTimeout(() => { if (this.state.run === 'running') this.finishRun(); }, 90000);
+  };
+
+  finishRun = () => {
+    this.closeStream();
+    this.setState({ run:'done', step:5 });
+  };
+
+  closeStream() {
+    if (this.es) { this.es.close(); this.es = null; }
+    if (this.elTimer) clearInterval(this.elTimer);
+    if (this.runWatchdog) clearTimeout(this.runWatchdog);
+  }
+
+  ask = async (id) => {
+    const preset = id ? this.presets.find(x => x.id === id) : null;
+    const userText = preset ? preset.q : (this.state.q || '').trim();
+    if (!userText) return;
+    this.setState(st => ({ messages:[...st.messages, { role:'user', text:userText }], q:'', asking:true }));
+    try {
+      const res = await fetch('/api/ask', {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ question: userText }),
+      });
+      const qa = await res.json();
+      this.setState(st => ({ messages:[...st.messages, this.qaToMessage(qa)], asking:false }));
+    } catch (e) {
+      this.setState(st => ({ messages:[...st.messages,
+        { role:'assistant', main:'Could not reach the model.', tail:'', nodeIds:[] }], asking:false }));
+    }
+  };
+
+  qaToMessage(qa) {
+    const src = (qa.provenance && qa.provenance[0]) || null;
+    return {
+      role:'assistant',
+      main: qa.found ? qa.answer : 'No answer found in the graph.',
+      tail: src ? (src.kind === 'source' ? 'Source' : 'Related context') : '',
+      source: src ? `${src.speaker}: "${src.text}"` : null,
+      cypher: qa.cypher || null,
+      nodeIds: qa.graph_node_ids || [],
+      srcLine: -1,
+      cypherOpen: false,
+    };
+  }
+
+  toggleCy = (i) => {
+    this.setState(st => ({ messages: st.messages.map((m, j) => j===i ? { ...m, cypherOpen:!m.cypherOpen } : m) }));
+  };
+
+  onKey = (e) => { if(e.key==='Enter') this.ask(null); };
+
+  componentDidUpdate(prevProps, prevState){
+    if(this.tRef.current && this.state.tlines !== prevState.tlines){
+      this.tRef.current.scrollTop = this.tRef.current.scrollHeight;
+    }
+    if(this.chatRef.current && this.state.messages.length !== prevState.messages.length){
+      this.chatRef.current.scrollTop = this.chatRef.current.scrollHeight;
+    }
+  }
+
+  tabStyle(active){
+    return `padding:7px 17px; border-radius:7px; border:none; background:${active?'#1c1b21':'transparent'}; color:${active?'#ECE8E1':'#8A8579'}; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.13em; text-transform:uppercase; cursor:pointer; transition:all .25s ease;`;
+  }
+
+  renderVals(){
+    const st = this.state;
+    const lastBot = [...st.messages].reverse().find(m => m.role === 'assistant');
+    const ansObj = lastBot ? { nodeIds: lastBot.nodeIds || [], srcLine:-1 } : null;
+    const inAns = new Set(ansObj ? ansObj.nodeIds : []);
+    const srcLine = -1;
+
+    const steps = this.steps.map((s, i) => {
+      const status = st.run==='done' ? 'done' : (i < st.step ? 'done' : (i===st.step && st.run==='running') ? 'active' : 'pending');
+      const filled = status!=='pending';
+      return {
+        label:s.label, sub:s.sub,
+        dotStyle:`width:10px; height:10px; border-radius:50%; flex:0 0 auto; border:1px solid ${status==='pending'?'#3A3942':'#C8A24E'}; background:${filled?'#C8A24E':'transparent'}; transition:all .3s ease; ${status==='active'?'animation:atyxpulse 1.8s ease-in-out infinite;':''}`,
+        labelColor: status==='pending' ? '#5b5750' : '#ECE8E1',
+        subColor: status==='active' ? '#C8A24E' : '#5b5750',
+        showElapsed: status==='active',
+        elapsed: st.elapsed.toFixed(1) + 's',
+      };
+    });
+
+    const spShort = spk => String(spk || '').replace(/SPEAKER_0*(\d+)/, 'S$1');
+    const fmtT = t => { const s = Math.round(Number(t)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+    const rows = (st.streamLines || []).slice(0, st.tlines).map((l, i) => {
+      const sp = spShort(l.speaker || l.sp);
+      return {
+        sp, t: fmtT(l.t), text: l.text,
+        chipBg: sp==='S1' ? 'rgba(200,162,78,0.14)' : 'rgba(107,138,174,0.16)',
+        chipColor: sp==='S1' ? '#C8A24E' : '#9db4d0',
+        rowBg: i===srcLine ? 'rgba(200,162,78,0.08)' : 'transparent',
+        rowBorder: i===srcLine ? 'rgba(200,162,78,0.35)' : 'transparent',
+      };
+    });
+
+    const nodes = this.graphNodes.map((n, i) => {
+      const shown = i < st.nodes;
+      const gold = !!ansObj && inAns.has(n.id);
+      const dim = !!ansObj && !gold;
+      return {
+        cx:n.cx, cy:n.cy, label:n.label,
+        r: n.type==='entity' ? 11 : 7,
+        labelY: n.cy + (n.type==='entity' ? 28 : 23),
+        dotStyle:`opacity:${shown?1:0}; fill:${gold?'#C8A24E':'#26252c'}; stroke:${gold?'#C8A24E':'#3A3942'}; stroke-width:1.5; transition:opacity .5s ease, fill .4s ease, stroke .4s ease;`,
+        textStyle:`opacity:${shown?(dim?0.35:1):0}; fill:${gold?'#C8A24E':'#8A8579'}; font-family:'Inter',sans-serif; font-size:12px; font-weight:${gold?'600':'400'}; transition:opacity .5s ease, fill .4s ease;`,
+      };
+    });
+
+    const idxOf = id => this.graphNodes.findIndex(n => n.id===id);
+    const edges = this.graphEdges.map(e => {
+      const a = this.graphNodes.find(n => n.id===e.from);
+      const b = this.graphNodes.find(n => n.id===e.to);
+      const shown = idxOf(e.from) < st.nodes && idxOf(e.to) < st.nodes;
+      const gold = !!ansObj && inAns.has(e.from) && inAns.has(e.to);
+      return {
+        x1:a.cx, y1:a.cy, x2:b.cx, y2:b.cy,
+        lineStyle:`opacity:${shown?(gold?1:0.45):0}; stroke:${gold?'#C8A24E':'#2b2a31'}; stroke-width:${gold?1.8:1}; transition:opacity .5s ease, stroke .4s ease;`,
+        label:e.label, lx:(a.cx+b.cx)/2, ly:(a.cy+b.cy)/2 - 5,
+        labelStyle:`opacity:${shown?(gold?0.95:0.28):0}; fill:${gold?'#C8A24E':'#5b5750'}; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:0.08em; transition:opacity .4s ease, fill .4s ease;`,
+      };
+    });
+
+    const done = st.run==='done';
+    const suggestions = this.presets.map(p => ({
+      q:p.q,
+      onClick: () => this.ask(p.id),
+      style:`text-align:left; width:100%; padding:10px 13px; border-radius:9px; border:1px solid #232228; background:#121116; color:#8A8579; font-family:'Inter',sans-serif; font-size:13px; line-height:1.4; cursor:${done?'pointer':'default'}; transition:all .25s ease;`,
+    }));
+    const chat = st.messages.map((m, i) => ({
+      isUser: m.role==='user', isBot: m.role==='assistant',
+      text:m.text, main:m.main, tail:m.tail, source:m.source, cypher:m.cypher,
+      cypherOpen:m.cypherOpen, cyArrow: m.cypherOpen ? '▾' : '▸',
+      toggleCypher: () => this.toggleCy(i),
+    }));
+
+    const c = this.chart;
+    let expVals = { hasExp:false };
+    if (c) {
+      const snr = c.curve.map(p => Number(p.snr));
+      const sim = c.curve.map(p => p.similarity);
+      const px = i => 70 + i * ((600 - 70) / Math.max(snr.length - 1, 1));
+      const py = v => 300 - v * (300 - 40);                 // honest y-floor at 0
+      const simPts = sim.map((v, i) => `${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(' ');
+      expVals = {
+        hasExp:true,
+        simPts,
+        ylabels: [0, 0.25, 0.5, 0.75, 1].map(v => ({ y:py(v), ty:py(v)+3.5, label:v.toFixed(2) })),
+        xlabels: snr.map((s, i) => ({ x:px(i), label:s })),
+        curveLabel: c.labels.curve,
+        spotLabel: c.labels.spotcheck,
+        spotRows: c.spotcheck.map(r => ({
+          question:r.question, clean:r.clean_answer, degraded:r.degraded_answer,
+          degradedSnr: r.degraded_snr + ' dB',
+        })),
+      };
+    }
+
+    return {
+      isConsole: st.screen==='console',
+      isExperiment: st.screen==='experiment',
+      onConsole: () => this.setState({ screen:'console' }),
+      onExperiment: () => this.setState({ screen:'experiment' }),
+      consoleTabStyle: this.tabStyle(st.screen==='console'),
+      expTabStyle: this.tabStyle(st.screen==='experiment'),
+
+      steps,
+      onRun: this.startRun,
+      runDisabled: st.run==='running',
+      runLabel: st.run==='idle' ? '▶   Run live' : st.run==='running' ? 'Running…' : '↻   Replay run',
+      runStyle:`width:100%; padding:14px; border-radius:11px; border:none; background:${st.run==='running'?'#8a7330':'#C8A24E'}; color:#0A0A0C; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; letter-spacing:0.01em; cursor:${st.run==='running'?'default':'pointer'}; transition:all .3s ease;`,
+
+      showEmpty: st.run==='idle',
+      notEmpty: st.run!=='idle',
+      rows, tRef:this.tRef, nodes, edges,
+      liveFacts: st.liveFacts || [],
+
+      notDone: false,            // chat is grounded in the pre-built authoritative graph
+      asking: st.asking,
+      q:st.q,
+      onQ: e => this.setState({ q:e.target.value }),
+      onAsk: () => this.ask(null),
+      onKey: this.onKey,
+      chatRef: this.chatRef,
+      chat,
+      chatEmpty: st.messages.length===0,
+      suggestions,
+      emptyPrompt: 'Ask anything about the conversation.',
+      suggestGate: 'opacity:1; pointer-events:auto;',
+      inputGate: 'opacity:1; pointer-events:auto;',
+
+      ...expVals,
+    };
+  }
+}
+</script>
+</body>
+</html>
