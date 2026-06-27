@@ -197,11 +197,14 @@ async def api_upload(file: UploadFile = File(...)) -> dict:
     Returns ``{"clip_id": str}`` on success; HTTP 400 on non-audio or > 600 s.
     No Neo4j write; no src.qa import.
     """
-    uploads_dir = Path(CFG.paths.uploads)
-    uploads_dir.mkdir(parents=True, exist_ok=True)
+    # Uploaded clips are written into data/raw so enhance.run(clip_id) finds them
+    # at data/raw/<clip_id>.wav — the path it always reads from.
+    # CFG.paths.uploads still exists in config (task-1 test asserts the key).
+    raw_dir = Path(CFG.paths.raw)
+    raw_dir.mkdir(parents=True, exist_ok=True)
 
     clip_id = "upload_" + uuid.uuid4().hex[:10]
-    out_path = uploads_dir / f"{clip_id}.wav"
+    out_path = raw_dir / f"{clip_id}.wav"
 
     # Write upload to a temp file so ffprobe/ffmpeg can open it by path.
     with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename or "upload").suffix) as tmp:
