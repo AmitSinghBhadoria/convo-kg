@@ -56,9 +56,11 @@ A **160 s slice (`pms.wav[0:160]`)** is the evaluation clip — a **2-speaker co
 3. **Carries the golden-Q&A facts (verified, not assumed).** The §6 build-time gate ran against the clean baseline transcript and confirms the window's content: **PMS-vs-Mutual-Fund is strongly present** ("there are quite a few mutual funds which are run as if they are a PMS"; 8× "mutual fund", 16× "PMS"), along with **fees/minimums** (₹ lakh/crore, light-touch regulation), **White Oak** (offers both), and the **audience** ("we're working with a lot of younger investors"). The literal "transparency" and "strategy" statements fall **outside** this window — so the spot-check (§7) uses the facts that **are** in the slice, per the approved contingency, rather than questions the slice cannot answer. The alternative 360–520 s window was rejected because the gate found it carries **zero** golden facts.
 
 ## 7. Downstream spot-check — illustrative, not calibrated
-After the hero curve, a **bounded** look at propagation: take the **clean** and **one degraded** SNR transcript, run the **in-slice golden Q&A questions** (verified present in §6 — PMS-vs-Mutual-Fund, fees/minimums, who-it's-for) against the graph built from each, and present the answers **side by side** to *show* front-end degradation flowing into the answer.
+After the hero curve, a **bounded** look at propagation: take the **clean** and **one degraded** SNR transcript, answer the **in-slice golden Q&A questions** (verified present in §6 — PMS-vs-Mutual-Fund, fees/minimums, who-it's-for) from **each transcript** and present the answers **side by side** to *show* front-end degradation flowing into the answer.
 
-This is **explicitly labelled on every artifact as "illustrative propagation, not a calibrated curve."** It is one or two concrete before/after examples, not a scored accuracy metric — because (per §2) the extraction estimator is too noisy to calibrate. It demonstrates the *mechanism* (worse transcript → worse/missing answer) honestly, without overclaiming a number.
+**Mechanism — transcript-grounded retrieval, NOT the full extract→graph→Q&A product path.** Each answer is computed by reusing `qa`'s semantic-fallback retrieval directly over the transcript: embed the question, take the top-k utterances of *that condition's transcript* by cosine (`qa.cosine` / `qa.top_k_statements`), and compose an answer from those quotes (`qa.compose_answer`). **No fact extraction, no Neo4j mutation** — deliberately. This keeps the **only** variable differing between clean and degraded equal to the **transcript**, so the observed answer difference is attributable to noise — the precise "worse transcript → worse answer" propagation the spot-check exists to show. Running the full product path instead would (a) reintroduce the nondeterministic ~9B extraction ceiling between transcript and answer — muddying the isolated variable and contradicting Phase 4's "keep the noisy estimator out of every measured path" thesis — and (b) clobber the live `pms` demo graph in shared Neo4j right before the demo. The phase stays coherent: **hero curve isolates noise→transcript; spot-check isolates transcript→answer; extraction stays out of both.**
+
+This is **explicitly labelled on every artifact** two ways: (1) **"illustrative propagation, not a calibrated curve"** — one or two concrete before/after examples, not a scored metric (per §2 the extraction estimator is too noisy to calibrate); and (2) **"transcript-grounded retrieval, not the full extract→graph→Q&A product path"** — so the side-by-side illustrates transcript-fidelity→answer-quality honestly without implying the full pipeline is what degraded.
 
 ## 8. Outputs & module design
 
@@ -81,6 +83,12 @@ def snr_curve(baseline: Transcript,
               noisy: dict[str, Transcript]) -> list[CurvePoint]
     # CurvePoint = {snr: str, similarity: float}; similarity(noisy_text, baseline_text)
     # using evaltools.similarity. Deterministic, oracle-free.
+
+# Transcript-grounded retrieval (reuses qa.cosine/top_k_statements/compose_answer).
+# Embeds each utterance of ONE transcript, retrieves top-k for the question,
+# composes an answer from those quotes. No extraction, no graph. The injected
+# `llm` (and a tiny statements-builder) keeps it unit-testable with a fake.
+def retrieve_answer(question: str, transcript: Transcript, llm, k: int = 3) -> str
 
 # Pure — assemble the illustrative spot-check rows from pre-computed answers.
 def downstream_spotcheck(rows: list[SpotCheckRow]) -> list[SpotCheckRow]
