@@ -24,13 +24,27 @@ EXTRACT_SCHEMA: dict[str, Any] = {
     "properties": {
         "entities": {
             "type": "array",
+            # maxItems bounds the constrained-decoding grammar so the array is
+            # forced to close — prevents the greedy-decode repetition loop that
+            # otherwise lets a dense chunk emit the same objects unboundedly.
+            # 15 is generous headroom for one small (~700-token) chunk and is
+            # kept consistent with llm.max_tokens: at ~100 tokens per item, the
+            # closed array fits under the 2048 cap with margin, so the grammar
+            # closes the array naturally instead of the token cap truncating it.
+            "maxItems": 15,
             "items": {
                 "type": "object",
                 "properties": {
                     "id":    {"type": "string"},
                     "label": {
                         "type": "string",
-                        "enum": ["Speaker", "Statement", "Entity", "Claim", "Attribute"],
+                        # Extraction may ONLY emit content nodes. Speaker and
+                        # Statement are backbone nodes created from the transcript
+                        # by graph.upsert (clean, diarization-derived); letting the
+                        # LLM emit them spawns duplicate/garbage Speaker nodes
+                        # ("Viraj", "Speaker_02", "SPEAKER_02") that collide with
+                        # the real ones and corrupt speaker attribution.
+                        "enum": ["Entity", "Claim", "Attribute"],
                     },
                     "type": {"type": "string"},
                     "name": {"type": "string"},
@@ -41,6 +55,11 @@ EXTRACT_SCHEMA: dict[str, Any] = {
         },
         "facts": {
             "type": "array",
+            # See the entities note: bounds the array so the grammar closes it,
+            # kept consistent with llm.max_tokens (~100 tokens/fact -> 15 facts
+            # fit under the 2048 cap with margin). With small chunks the array
+            # closes naturally well below this; it is a backstop, not a target.
+            "maxItems": 15,
             "items": {
                 "type": "object",
                 "properties": {
@@ -181,6 +200,11 @@ def consolidate(
     clip: str,
 ) -> FactSet:
     """Merge entities, filter + dedup facts, return a grounded FactSet."""
+    # Defensive backstop to the schema enum: extraction must never create
+    # backbone nodes. Drop any Speaker/Statement-labeled entity so a stray one
+    # cannot pollute the graph's diarization-derived Speaker/Statement nodes.
+    # Facts referencing a dropped entity fall away via the dangling-ref guard.
+    raw_entities = [e for e in raw_entities if e.label not in ("Speaker", "Statement")]
     reps, id_map = resolver.resolve(raw_entities)
     rep_ids = {e.id for e in reps}
 

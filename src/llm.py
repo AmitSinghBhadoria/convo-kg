@@ -7,7 +7,7 @@ class LLM:
         self.cfg = cfg
         self.client = OpenAI(base_url=cfg.base_url, api_key="lm-studio")
 
-    def chat_json(self, system: str, user: str, schema: dict) -> dict:
+    def chat_json(self, system: str, user: str, schema: dict, max_tokens: int = 2048) -> dict:
         rf = {"type": "json_schema",
               "json_schema": {"name": "out", "strict": True, "schema": schema}}
         for attempt in range(2):
@@ -15,7 +15,13 @@ class LLM:
                 model=self.cfg.model,
                 messages=[{"role": "system", "content": system},
                           {"role": "user", "content": user}],
-                response_format=rf, temperature=0)
+                # max_tokens is a safety bound: it caps the blast radius of any
+                # runaway/repetition generation (a single call can no longer burn
+                # ~9k tokens). The real fix for the extraction loop is maxItems on
+                # the schema arrays; this is defense in depth. A clean extraction
+                # JSON for one chunk is well under this, so it does not truncate
+                # legitimate output — verified on the dense PMS chunk.
+                response_format=rf, temperature=0, max_tokens=max_tokens)
             msg = r.choices[0].message
             # Thinking models (e.g. Qwen3.5) may route the JSON to reasoning_content
             # and leave content empty; fall back to it so we're robust to the toggle state.

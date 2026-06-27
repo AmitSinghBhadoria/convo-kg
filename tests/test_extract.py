@@ -66,6 +66,24 @@ def test_confidence_threshold_is_inclusive_at_boundary():     # confidence == th
     assert [f.object_id for f in fs.facts] == ["attribute:50-lakh"]   # 0.6 kept, 0.599 dropped
 
 
+def test_consolidate_drops_backbone_labeled_entities():
+    # Extraction must never create Speaker/Statement backbone nodes — those come
+    # from the transcript. A stray Speaker entity (and any fact touching it) is dropped.
+    ents = [Entity(id="c0:e1", label="Entity", type="Instrument", name="PMS"),
+            Entity(id="c0:e2", label="Attribute", type="Money", name="50 lakh"),
+            Entity(id="c0:s1", label="Speaker", type="FundManager", name="Viraj")]
+    facts = [
+        Fact(subject_id="c0:e1", relation="MIN_INVESTMENT", object_id="c0:e2",
+             statement="PMS 50 lakh", speaker="S0", confidence=0.9, statement_id="stmt:pms:0"),
+        Fact(subject_id="c0:e1", relation="SAID_BY", object_id="c0:s1",
+             statement="x", speaker="S0", confidence=0.9, statement_id="stmt:pms:0"),  # touches Speaker
+    ]
+    fs = consolidate(ents, facts, vocab=None, threshold=0.6, resolver=_resolver(), clip="pms")
+    assert all(e.label != "Speaker" for e in fs.entities)          # Speaker entity dropped
+    assert {e.id for e in fs.entities} == {"entity:pms", "attribute:50-lakh"}
+    assert [f.relation for f in fs.facts] == ["MIN_INVESTMENT"]    # fact into Speaker dropped (dangling)
+
+
 def test_consolidate_empty_inputs_yield_valid_empty_factset():
     fs = consolidate([], [], vocab=None, threshold=0.6, resolver=_resolver(), clip="pms")
     assert fs.clip == "pms" and fs.entities == [] and fs.facts == []
