@@ -1,7 +1,7 @@
 from src.contracts import Entity, Fact, Utterance
 from src.chunking import Chunk
 from src.resolve import EntityResolver
-from src.extract import consolidate, build_prompt, namespace
+from src.extract import consolidate, build_prompt, namespace, promote_undefined_endpoints
 
 
 def _resolver():
@@ -64,6 +64,26 @@ def test_confidence_threshold_is_inclusive_at_boundary():     # confidence == th
                  statement="y", speaker="S0", confidence=0.599, statement_id="stmt:pms:1")  # < threshold
     fs = consolidate(ents, [at, below], vocab=None, threshold=0.6, resolver=_resolver(), clip="pms")
     assert [f.object_id for f in fs.facts] == ["attribute:50-lakh"]   # 0.6 kept, 0.599 dropped
+
+
+def test_promote_undefined_endpoints_recovers_value_objects():
+    # Model defined only PMS (e1) but wrote a value directly as object_id.
+    ents = [Entity(id="e1", label="Entity", type="Instrument", name="PMS")]
+    facts = [Fact(subject_id="e1", relation="MIN_INVESTMENT", object_id="50 lakh",
+                  statement="PMS min is 50 lakh", speaker="S0", confidence=0.95,
+                  statement_id="stmt:pms:7")]
+    facts.append(Fact(subject_id="e1", relation="CARRIES_RISK", object_id="e3",  # bare local id
+                      statement="x", speaker="S0", confidence=0.9, statement_id="stmt:pms:7"))
+    out = promote_undefined_endpoints(ents, facts)
+    promoted = {e.id: e for e in out}
+    assert "50 lakh" in promoted                          # real value promoted to an entity
+    assert promoted["50 lakh"].label == "Attribute"
+    assert "e3" not in promoted                           # bare local id NOT promoted (would be garbage)
+    # end-to-end: the fact now survives consolidate instead of being dropped as dangling
+    e0, f0 = namespace(out, facts, 0)
+    fs = consolidate(e0, f0, vocab=None, threshold=0.6, resolver=_resolver(), clip="pms")
+    assert [f.relation for f in fs.facts] == ["MIN_INVESTMENT"]
+    assert "attribute:50-lakh" in {e.id for e in fs.entities}
 
 
 def test_consolidate_drops_backbone_labeled_entities():
