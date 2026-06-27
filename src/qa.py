@@ -516,7 +516,10 @@ def augment_schema(
 # ---------------------------------------------------------------------------
 
 FALLBACK_TOP_K: int = 3
-FALLBACK_MIN_COSINE: float = 0.15  # empirically tuned: France=0.0051, compounding=0.3499 → floor at 0.15
+FALLBACK_MIN_COSINE: float = 0.40  # empirically tuned on the real 74-statement pms corpus:
+# answerable questions score 0.54–0.70 (PMS min 0.63, transparency 0.63, corpus 0.54, when-to-consider 0.70);
+# unanswerable score 0.22–0.23 (capital of France 0.23, weather 0.23). Floor 0.40 sits between with margin,
+# so off-topic questions decline on the SCORE (found=False), not on the LLM noticing. Re-tune if the corpus changes.
 
 # Module-level embedding cache: statement_id -> {id, speaker, text, vec}
 _EMBEDDING_CACHE: dict[str, dict] = {}
