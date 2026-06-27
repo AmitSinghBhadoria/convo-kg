@@ -28,3 +28,17 @@ def test_ask_returns_qaresult_shape():
               "provenance", "graph_node_ids", "hops"):
         assert k in qa                                        # full QAResult contract
     assert isinstance(qa["graph_node_ids"], list)
+
+
+@pytest.mark.integration
+def test_alignment_gate_golden_question_node_ids_match_graph():
+    # The hero payoff (ask -> nodes light up) requires QAResult.graph_node_ids to be
+    # byte-identical to /api/graph node ids. Use a GOLDEN demo question that resolves
+    # via Cypher with provenance (NOT a synthetic one) — a synthetic pass while a
+    # golden question's ids drift would be a false green.
+    graph_ids = {n["id"] for n in client.get("/api/graph").json()["nodes"]}
+    qa = client.post("/api/ask",
+                     json={"question": "What is the fee structure of a PMS?"}).json()
+    if qa["mode"] == "cypher" and qa["graph_node_ids"]:
+        missing = [i for i in qa["graph_node_ids"] if i not in graph_ids]
+        assert not missing, f"node-id format drift — not in /api/graph: {missing}"

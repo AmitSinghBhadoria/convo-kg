@@ -167,9 +167,11 @@ def build_cypher_prompt(
         "3. When the answer requires traversing a fact relationship, bind the\n"
         "   relationship to a variable and RETURN its source_statement_id aliased\n"
         "   as provenance, e.g.:\n"
-        "     MATCH (a)-[r:SOME_REL]->(b) RETURN r.source_statement_id AS provenance, a.id, b.id\n"
+        "     MATCH (a)-[r:SOME_REL]->(b) RETURN r.source_statement_id AS provenance, a, b\n"
+        "   Return the full node objects (a, b) — NOT just their properties like a.name or a.id.\n"
         "   Do NOT alias a node property (such as a Statement's id) as provenance.\n"
-        "4. Also RETURN the relevant node id(s) so individual nodes can be fetched.\n"
+        "4. Always RETURN the full relevant node objects so their ids can be extracted for\n"
+        "   graph highlighting. Use 'RETURN a, b' not 'RETURN a.id, b.id' or 'RETURN a.name'.\n"
         "5. Prefer single-hop queries; use multi-hop only if the question\n"
         "   strictly requires it.\n"
         "6. Output ONLY valid Cypher inside the JSON field 'cypher'.\n"
@@ -258,18 +260,49 @@ def run_read(driver, database: str, cypher: str) -> list[dict]:
 def extract_node_ids(rows: list[dict]) -> list[str]:
     """Return distinct node ``id`` values from *rows*, order-preserving.
 
-    A value is "node-shaped" if it is a ``dict`` containing a string ``"id"``
-    key.  Plain scalars and dicts without an ``"id"`` key are ignored.
+    Handles two Cypher RETURN patterns:
+    - Full node objects: ``RETURN a, b`` → value is a dict with an ``"id"`` key.
+    - Property access:   ``RETURN a.id, b.id`` → string value in a column whose
+      key ends with ``.id`` (belt-and-suspenders for the older pattern).
+
+    Plain scalars, dicts without ``"id"``, and non-id property columns are ignored.
     """
     seen: set[str] = set()
     result: list[str] = []
     for row in rows:
-        for value in row.values():
+        for key, value in row.items():
             if isinstance(value, dict) and "id" in value and isinstance(value["id"], str):
+                # Full node object returned via RETURN a, b
                 node_id = value["id"]
                 if node_id not in seen:
                     seen.add(node_id)
                     result.append(node_id)
+            elif isinstance(value, str) and key.endswith(".id"):
+                # Property access returned via RETURN a.id, b.id
+                node_id = value
+                if node_id not in seen:
+                    seen.add(node_id)
+                    result.append(node_id)
+    return result
+
+
+def resolve_names_to_node_ids(names: list[str], driver, database: str) -> list[str]:
+    """Fallback: given a list of node *name* values, return their graph node ``id``s.
+
+    Used when the LLM-generated Cypher returns ``b.name`` (a scalar string) instead
+    of the full node object, so ``extract_node_ids`` yields nothing.  Looks up
+    :Entity and :Attribute nodes whose ``name`` matches any of the provided names.
+    """
+    if not names:
+        return []
+    with driver.session(database=database) as session:
+        result = session.execute_read(lambda tx: [
+            r["id"] for r in tx.run(
+                "MATCH (n) WHERE (n:Entity OR n:Attribute) AND n.name IN $names "
+                "RETURN n.id AS id",
+                names=names,
+            )
+        ])
     return result
 
 
@@ -786,6 +819,14 @@ def answer(
         prov_ids = extract_provenance_ids(rows)
         prov = resolve_provenance(driver, database, prov_ids)
         node_ids = extract_node_ids(rows)
+        if not node_ids:
+            # LLM returned property scalars (e.g. b.name) instead of full nodes.
+            # Collect all string values from *.name columns and resolve to node ids.
+            names = list({
+                v for row in rows for k, v in row.items()
+                if k.endswith(".name") and isinstance(v, str)
+            })
+            node_ids = resolve_names_to_node_ids(names, driver, database)
         ans = compose_answer(question, rows, prov, llm)
 
         return QAResult(

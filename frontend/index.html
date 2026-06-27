@@ -301,25 +301,8 @@ class Component extends DCLogic {
     { label:'Graph build', sub:'Neo4j · Cypher' },
   ];
 
-  graphNodes = [
-    { id:'pms',  label:'PMS',          type:'entity', cx:255, cy:150 },
-    { id:'n50',  label:'₹50 L',        type:'number', cx:108, cy:205 },
-    { id:'aif',  label:'AIF',          type:'entity', cx:478, cy:138 },
-    { id:'n1cr', label:'₹1 Cr',        type:'number', cx:618, cy:205 },
-    { id:'mf',   label:'Mutual Fund',  type:'entity', cx:300, cy:308 },
-    { id:'n500', label:'₹500 SIP',     type:'number', cx:138, cy:362 },
-    { id:'sebi', label:'SEBI',         type:'org',    cx:482, cy:308 },
-    { id:'cat3', label:'Category III', type:'topic',  cx:618, cy:88  },
-  ];
-
-  graphEdges = [
-    { from:'pms',  to:'n50',  label:'HAS_MIN' },
-    { from:'aif',  to:'n1cr', label:'HAS_MIN' },
-    { from:'pms',  to:'mf',   label:'CONTRASTS' },
-    { from:'mf',   to:'n500', label:'MIN_SIP' },
-    { from:'aif',  to:'sebi', label:'REGULATED_BY' },
-    { from:'aif',  to:'cat3', label:'TYPE' },
-  ];
+  graphNodes = [];
+  graphEdges = [];
 
   presets = [
     { id:'pms', q:'What is the minimum investment for PMS?', main:'₹50 lakh', tail:'SEBI-mandated minimum ticket size for a Portfolio Management Service.', nodeIds:['pms','n50'], srcLine:0, source:'S1 · 0:08', cypher:"MATCH (e:Entity {name:'PMS'})\n      -[:HAS_MIN]->(v:Amount)\nRETURN v.display" },
@@ -343,6 +326,29 @@ class Component extends DCLogic {
 
   tRef = React.createRef();
   chatRef = React.createRef();
+
+  componentDidMount() {
+    fetch('/api/graph').then(r => r.json()).then(g => {
+      this.graphNodes = this.layoutNodes(g.nodes);
+      this.graphEdges = g.edges.map(e => ({ from:e.from, to:e.to, label:e.relation }));
+      this.setState(st => ({ nodes: this.graphNodes.length }));   // reveal all nodes
+    }).catch(() => {});
+  }
+
+  layoutNodes(nodes) {
+    // Deterministic radial layout in the ~680x400 SVG: entities on an inner ring,
+    // attributes/claims on an outer ring. Stable (no animation jitter), readable;
+    // highlight correctness does not depend on positions.
+    const cx0 = 345, cy0 = 200;
+    const inner = nodes.filter(n => n.label === 'Entity');
+    const outer = nodes.filter(n => n.label !== 'Entity');
+    const place = (arr, rx, ry) => arr.map((n, i) => {
+      const a = (2 * Math.PI * i) / Math.max(arr.length, 1) - Math.PI / 2;
+      return { id:n.id, label:n.name, type:(n.label === 'Entity' ? 'entity' : 'attr'),
+               cx: cx0 + rx * Math.cos(a), cy: cy0 + ry * Math.sin(a) };
+    });
+    return [...place(inner, 120, 95), ...place(outer, 250, 150)];
+  }
 
   componentWillUnmount(){ this.clearTimers(); }
 
@@ -418,9 +424,10 @@ class Component extends DCLogic {
 
   renderVals(){
     const st = this.state;
-    const ansObj = st.ans ? this.presets.find(p => p.id===st.ans) : null;
+    const lastBot = [...st.messages].reverse().find(m => m.role === 'assistant');
+    const ansObj = lastBot ? { nodeIds: lastBot.nodeIds || [], srcLine:-1 } : null;
     const inAns = new Set(ansObj ? ansObj.nodeIds : []);
-    const srcLine = ansObj ? ansObj.srcLine : -1;
+    const srcLine = -1;
 
     const steps = this.steps.map((s, i) => {
       const status = st.run==='done' ? 'done' : (i < st.step ? 'done' : (i===st.step && st.run==='running') ? 'active' : 'pending');
@@ -519,7 +526,7 @@ class Component extends DCLogic {
       chat,
       chatEmpty: st.messages.length===0,
       suggestions,
-      emptyPrompt: done ? 'Ask anything about the conversation.' : 'Run the pipeline to ground the chat.',
+      emptyPrompt: 'Ask anything about the conversation.',
       suggestGate: 'opacity:1; pointer-events:auto;',
       inputGate: 'opacity:1; pointer-events:auto;',
 
