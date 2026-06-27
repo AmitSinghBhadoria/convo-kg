@@ -131,7 +131,10 @@ async def api_upload(file: UploadFile = File(...)) -> dict:
         if duration > 600:
             raise HTTPException(status_code=400, detail="clip too long — 10 min max")
 
-        audioprep.to_16k_mono(tmp_path, str(out_path))
+        try:
+            audioprep.to_16k_mono(tmp_path, str(out_path))
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=f"audio re-encode failed: {exc}")
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 

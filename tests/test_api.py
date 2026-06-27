@@ -11,7 +11,6 @@ client = TestClient(app)
 
 def test_upload_rejects_too_long(monkeypatch):
     monkeypatch.setattr(api.audioprep, "probe_duration", lambda p: 601.0)
-    monkeypatch.setattr(api.audioprep, "to_16k_mono", lambda s, d: None)
     r = client.post("/api/upload", files={"file": ("x.wav", io.BytesIO(b"RIFFxxxx"), "audio/wav")})
     assert r.status_code == 400 and "10 min" in r.json()["detail"]
 
@@ -20,6 +19,14 @@ def test_upload_rejects_non_audio(monkeypatch):
     monkeypatch.setattr(api.audioprep, "probe_duration", boom)
     r = client.post("/api/upload", files={"file": ("x.txt", io.BytesIO(b"hello"), "text/plain")})
     assert r.status_code == 400
+
+def test_upload_reencode_failure_returns_400(monkeypatch):
+    monkeypatch.setattr(api.audioprep, "probe_duration", lambda p: 30.0)
+    def boom(s, d): raise RuntimeError("ffmpeg exited with code 1")
+    monkeypatch.setattr(api.audioprep, "to_16k_mono", boom)
+    r = client.post("/api/upload", files={"file": ("x.wav", io.BytesIO(b"RIFFxxxx"), "audio/wav")})
+    assert r.status_code == 400
+    assert "re-encode" in r.json()["detail"]
 
 def test_upload_accepts_valid(monkeypatch, tmp_path):
     monkeypatch.setattr(api.audioprep, "probe_duration", lambda p: 42.0)
