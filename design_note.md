@@ -139,8 +139,9 @@ front-end shows a roughly flat, slightly-rising shoulder from 20→10 dB — abs
 sits at only 0.55–0.63 even at the cleanest tested level, well within ASR/diarization
 run-to-run variance (the relative metric plus diarization-segmentation differences mean
 even lightly-noised transcripts diverge from the clean baseline). Then a **sharp cliff
-below 5 dB**: similarity drops from 0.6253 at 10 dB to 0.2873 at 0 dB. The **cliff at
-5 dB is the finding** — this is not smooth monotonic degradation. For field deployments,
+that begins at the 10→5 dB step and deepens to 0 dB**: similarity falls from 0.6253 at
+10 dB to 0.4525 at 5 dB to 0.2873 at 0 dB. The **cliff is the finding** — this is not
+smooth monotonic degradation. For field deployments,
 it identifies a practical noise floor below which the ASR loses roughly a third of content
 and retrieval-based Q&A becomes unreliable.
 
