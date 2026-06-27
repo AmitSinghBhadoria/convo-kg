@@ -1,5 +1,6 @@
+import json
 from src.contracts import Transcript, Utterance, CurvePoint, SpotCheckRow
-from src.evaluate import snr_curve, retrieve_answer, downstream_spotcheck
+from src.evaluate import snr_curve, retrieve_answer, downstream_spotcheck, emit_results, cliff_index, _y_limits
 
 
 class FakeLLM:
@@ -61,3 +62,32 @@ def test_downstream_spotcheck_zips_rows_without_verdict():
     assert all(isinstance(r, SpotCheckRow) for r in rows)
     # SpotCheckRow has no verdict/score field — illustrative only
     assert "verdict" not in SpotCheckRow.model_fields and "score" not in SpotCheckRow.model_fields
+
+
+def test_y_limits_are_a_fixed_honest_floor_ignoring_data():
+    # Even a curve that never drops below 0.9 must still plot from 0 — no
+    # auto-scaling to dramatize a small drop.
+    c = [CurvePoint(snr="20", similarity=0.92), CurvePoint(snr="0", similarity=0.90)]
+    assert _y_limits(c) == (0.0, 1.02)
+
+
+def test_cliff_index_finds_point_after_steepest_drop():
+    c = [CurvePoint(snr="20", similarity=0.95),
+         CurvePoint(snr="10", similarity=0.90),
+         CurvePoint(snr="5", similarity=0.50)]      # steepest drop is 0.90 -> 0.50
+    assert cliff_index(c) == 2
+
+
+def test_emit_results_writes_json_and_png_with_both_honesty_labels(tmp_path):
+    curve = [CurvePoint(snr="20", similarity=0.95), CurvePoint(snr="0", similarity=0.40)]
+    sc = [SpotCheckRow(question="q", clean_answer="a", degraded_answer="b", degraded_snr=5)]
+    pj, pp = tmp_path / "r.json", tmp_path / "r.png"
+    j, p = emit_results(curve, sc, {"noise": "noices/cafe_16k.wav"}, str(pj), str(pp))
+    data = json.loads(pj.read_text())
+    assert data["curve"][0]["snr"] == "20"
+    assert data["spotcheck"][0]["question"] == "q"
+    # both required honesty labels present in the machine-readable artifact
+    assert "not a calibrated curve" in data["labels"]["spotcheck"]
+    assert "not the full product path" in data["labels"]["spotcheck"]
+    assert "not WER" in data["labels"]["curve"]
+    assert pp.exists() and pp.stat().st_size > 0      # a real PNG was rendered
