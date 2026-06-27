@@ -67,11 +67,13 @@ button { font:inherit; }
     <div style="border-right:1px solid #232228; padding:22px 20px; display:flex; flex-direction:column; gap:22px; overflow-y:auto;">
       <div>
         <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579; margin-bottom:10px;">Clip</div>
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 13px; background:#141318; border:1px solid #232228; border-radius:10px;">
-          <div>
-            <div style="font-size:13.5px; color:#ECE8E1; font-weight:500;">PMS&#8209;advisory.wav</div>
-            <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#5b5750; margin-top:3px; letter-spacing:0.04em;">1:35 · 16 kHz · 2 spk</div>
-          </div>
+        <div style="display:flex; flex-direction:column; gap:5px;">
+          <sc-for list="{{ clipRows }}" as="cr" hint-placeholder-count="3">
+            <div onClick="{{ cr.onClick }}" style="{{ cr.rowStyle }}">
+              <div style="font-size:13px; color:{{ cr.labelColor }}; font-weight:500;">{{ cr.label }}</div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; margin-top:2px; letter-spacing:0.04em;">{{ cr.domain }}</div>
+            </div>
+          </sc-for>
         </div>
       </div>
 
@@ -100,7 +102,7 @@ button { font:inherit; }
 
       <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ false }}">
         <div>
-          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#8a7330; letter-spacing:0.05em; margin-bottom:6px;">live extraction — illustrative; Q&amp;A queries the verified pre-built graph</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#8a7330; letter-spacing:0.05em; margin-bottom:6px;">automatic extraction — unverified; Q&amp;A queries the verified pre-built graph</div>
           <div style="max-height:100px; overflow-y:auto; display:flex; flex-direction:column;">
             <sc-for list="{{ liveFacts }}" as="f" hint-placeholder-count="0">
               <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; line-height:1.4; padding:3px 0; border-bottom:1px solid #1e1d24;">{{ f }}</div>
@@ -341,14 +343,17 @@ class Component extends DCLogic {
     fetch('/api/experiment').then(r => r.json()).then(ex => {
       this.chart = ex; this.forceUpdate();
     }).catch(() => {});
-    fetch('/api/clips').then(r => r.json()).then(clips => {
-      this.clips = clips || [];
+    fetch('/api/clips').then(r => r.json()).then(data => {
+      const activeId = (data && data.active) || null;
+      this.clips = ((data && data.clips) || []).map(c => ({ ...c, active: c.id === activeId }));
       const active = this.clips.find(c => c.active);
       if (active && active.mode && active.mode !== 'graph') {
         // Both must be set together: instance prop is the read source (renderVals reads this.clipMode
         // directly); state copy triggers a re-render so the UI reflects the new mode.
         this.clipMode = active.mode;
         this.setState({ clipMode: active.mode });
+      } else {
+        this.forceUpdate(); // repaint picker rows even when staying in graph mode
       }
     }).catch(() => {});
   }
@@ -442,6 +447,34 @@ class Component extends DCLogic {
 
   toggleCy = (i) => {
     this.setState(st => ({ messages: st.messages.map((m, j) => j===i ? { ...m, cypherOpen:!m.cypherOpen } : m) }));
+  };
+
+  selectClip = async (id) => {
+    try {
+      const res = await fetch('/api/select_clip', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) return;
+      const { mode } = await res.json();
+      // Update instance-level clip mode (dual-write pattern: instance prop + state)
+      this.clipMode = mode;
+      // Mark new active clip in the registry list
+      this.clips = this.clips.map(c => ({ ...c, active: c.id === id }));
+      // Reset all transient view state
+      this.setState({
+        clipMode: mode,
+        messages: [], run: 'idle', liveFacts: [], streamLines: [], step: -1, gsel: null, tlines: 0,
+      });
+      // For graph-mode clips, reload the graph snapshot; facts/live clips skip Neo4j
+      if (mode === 'graph') {
+        fetch('/api/graph').then(r => r.json()).then(g => {
+          this.graphNodes = this.layoutNodes(g.nodes);
+          this.graphEdges = g.edges.map(e => ({ from: e.from, to: e.to, label: e.relation }));
+          this.setState(st => ({ nodes: this.graphNodes.length }));
+        }).catch(() => {});
+      }
+    } catch (_) {}
   };
 
   onUpload = async (e) => {
@@ -611,6 +644,14 @@ class Component extends DCLogic {
       };
     }
 
+    const clipRows = this.clips.map(c => ({
+      label: c.label,
+      domain: c.domain || c.mode,
+      onClick: () => this.selectClip(c.id),
+      rowStyle: `display:flex; flex-direction:column; padding:9px 12px; background:#141318; border:1px solid ${c.active ? '#C8A24E' : '#232228'}; border-radius:9px; cursor:pointer; transition:border-color .2s ease;`,
+      labelColor: c.active ? '#ECE8E1' : '#8A8579',
+    }));
+
     return {
       isConsole: st.screen==='console',
       isExperiment: st.screen==='experiment',
@@ -622,6 +663,7 @@ class Component extends DCLogic {
       isGraphMode, isFactsMode,
       gridCols: isGraphMode ? '264px 1fr 372px' : '264px 1fr',
 
+      clipRows,
       steps,
       onRun: this.startRun,
       onUpload: this.onUpload,

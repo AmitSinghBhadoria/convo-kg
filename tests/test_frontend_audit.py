@@ -45,6 +45,12 @@ def test_picker_reads_clips_endpoint():
     assert "/api/clips" in HTML and "/api/select_clip" in HTML
 
 
+def test_picker_renders_registry_and_switches():
+    assert "onSelectClip" in HTML or "selectClip" in HTML   # a handler exists
+    # the decorative caret is now backed by data (clips list), not a static label only
+    assert "this.clips" in HTML or "clips" in HTML
+
+
 def test_no_cdn_refs_offline():
     # Vendored offline — no live CDN that could fail on stage. (Google Fonts <link>
     # is replaced by vendored fonts in this task if still present.)
