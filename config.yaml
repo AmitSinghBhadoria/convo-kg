@@ -34,3 +34,5 @@ demo:
   clip: pms
   clips:
     - {id: pms, label: PMS-advisory.wav, mode: graph, domain: "Private-wealth advisory (Hinglish)", speakers: 2}
+    - {id: call_100, label: call_100.wav, mode: facts, domain: "911 dispatch — water rescue", speakers: 2}
+    - {id: call_103, label: call_103.wav, mode: facts, domain: "911 dispatch — active shooter", speakers: 2}

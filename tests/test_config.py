@@ -33,3 +33,14 @@ def test_clip_registry_parses_with_modes():
 
 def test_uploads_path_present():
     assert load_config().paths.uploads  # non-empty path string
+
+import json, pathlib
+def test_example_clips_have_committed_artifacts():
+    cfg = load_config()
+    work = pathlib.Path(cfg.paths.work)
+    for cid in ("call_100", "call_103"):
+        c = next(c for c in cfg.demo.clips if c.id == cid)
+        assert c.mode == "facts"
+        assert (work / f"{cid}.transcript.json").exists()
+        facts = json.loads((work / f"{cid}.facts.json").read_text())
+        assert len(facts.get("facts", [])) >= 1   # non-empty extraction

@@ -1,0 +1,87 @@
+{
+  "clip": "call_100",
+  "entities": [
+    {
+      "id": "attribute:avenue-86-and-3",
+      "label": "Attribute",
+      "type": "Location",
+      "name": "Avenue 86 and 3",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:liza",
+      "label": "Attribute",
+      "type": "Location",
+      "name": "Liza",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:86-and-5",
+      "label": "Attribute",
+      "type": "Location",
+      "name": "86 and 5",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:car",
+      "label": "Attribute",
+      "type": "Vehicle",
+      "name": "car",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:speaker00",
+      "label": "Attribute",
+      "type": "Value",
+      "name": "SPEAKER_00",
+      "attrs": {}
+    }
+  ],
+  "facts": [
+    {
+      "subject_id": "attribute:speaker00",
+      "relation": "LOCATED_AT",
+      "object_id": "attribute:avenue-86-and-3",
+      "statement": "No, man, it's Avenue 86 and 3.",
+      "statement_id": "stmt:call_100:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 0.95
+    },
+    {
+      "subject_id": "attribute:speaker00",
+      "relation": "LOCATED_AT",
+      "object_id": "attribute:liza",
+      "statement": "I'm at Liza.",
+      "statement_id": "stmt:call_100:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 0.95
+    },
+    {
+      "subject_id": "attribute:speaker00",
+      "relation": "CONFIRMING_LOCATION",
+      "object_id": "attribute:avenue-86-and-3",
+      "statement": "You're at 86 and where? 86.",
+      "statement_id": "stmt:call_100:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 0.95
+    },
+    {
+      "subject_id": "attribute:speaker00",
+      "relation": "CONFIRMING_LOCATION",
+      "object_id": "attribute:86-and-5",
+      "statement": "We're in the water. 86 and 5.",
+      "statement_id": "stmt:call_100:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 0.95
+    },
+    {
+      "subject_id": "attribute:speaker00",
+      "relation": "MAINTAINING_CONTACT",
+      "object_id": "attribute:car",
+      "statement": "Are you still in the car? Yeah, ma 'am, I'm in the car.",
+      "statement_id": "stmt:call_100:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 0.95
+    }
+  ]
+}
