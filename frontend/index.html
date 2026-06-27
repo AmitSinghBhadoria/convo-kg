@@ -345,7 +345,12 @@ class Component extends DCLogic {
       this.es.addEventListener('transcript_line', e => { const d=JSON.parse(e.data); this.setState(st => ({ tlines: st.tlines + 1, streamLines: [...st.streamLines, d] })); });
       this.es.addEventListener('fact', e => { const d=JSON.parse(e.data); this.setState(st => ({ liveFacts:[...(st.liveFacts||[]), d.text] })); });
       this.es.addEventListener('done', e => { this.finishRun(); });
-      this.es.addEventListener('error', () => { this.finishRun(); });   // transport drop OR app error: don't hang
+      this.es.addEventListener('error', (e) => {
+        if (e && e.data) {
+          try { const d = JSON.parse(e.data); this.setState(st => ({ liveFacts:[...(st.liveFacts || []), 'error: ' + (d.message || 'stream error')] })); } catch (_) {}
+        }
+        this.finishRun();
+      });
     }).catch(() => this.finishRun());
     // Watchdog: if the stream stalls with no events, finish gracefully so the page stays usable.
     this.runWatchdog = setTimeout(() => { if (this.state.run === 'running') this.finishRun(); }, 90000);
@@ -376,7 +381,7 @@ class Component extends DCLogic {
       this.setState(st => ({ messages:[...st.messages, this.qaToMessage(qa)], asking:false }));
     } catch (e) {
       this.setState(st => ({ messages:[...st.messages,
-        { role:'assistant', main:'Could not reach the model.', tail:String(e), nodeIds:[] }], asking:false }));
+        { role:'assistant', main:'Could not reach the model.', tail:'', nodeIds:[] }], asking:false }));
     }
   };
 
