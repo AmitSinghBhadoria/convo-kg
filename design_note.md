@@ -131,19 +131,25 @@ answer grounded in the returned rows, with a semantic fallback over statement em
 — SNR the single controlled variable. Each noisy clip runs the full denoise→diarize→ASR
 front-end; the resulting transcript is scored against the **clean slice through the
 identical pipeline** (oracle-free) with `evaltools.similarity` (a relative sequence+set
-fidelity blend in [0,1], **not WER**).
+fidelity blend in [0,1], **not WER**). The absolute height is therefore not an accuracy
+figure against ground truth — it is similarity between two runs of the *same* audio, so
+**read the shape of the curve, not the absolute values.**
 
 **Hero curve (`data/ground_truth/snr_curve.png`).** Transcript fidelity vs SNR:
 20 dB → 0.5479, 15 dB → 0.5932, 10 dB → 0.6253, 5 dB → 0.4525, 0 dB → 0.2873. The
 front-end shows a roughly flat, slightly-rising shoulder from 20→10 dB — absolute fidelity
 sits at only 0.55–0.63 even at the cleanest tested level, well within ASR/diarization
 run-to-run variance (the relative metric plus diarization-segmentation differences mean
-even lightly-noised transcripts diverge from the clean baseline). Then a **sharp cliff
+even lightly-noised transcripts diverge from the clean baseline). The slight *rise* across
+20→10 dB is **not a real improvement** — added noise does not help ASR — it is
+diarization-segmentation churn between runs, below the metric's resolution; read 20–10 dB
+as **flat within measurement variance.** Then a **sharp cliff
 that begins at the 10→5 dB step and deepens to 0 dB**: similarity falls from 0.6253 at
 10 dB to 0.4525 at 5 dB to 0.2873 at 0 dB. The **cliff is the finding** — this is not
 smooth monotonic degradation. For field deployments,
-it identifies a practical noise floor below which the ASR loses roughly a third of content
-and retrieval-based Q&A becomes unreliable.
+the **only significant signal is the cliff at low SNR (5→0 dB)**, where café babble
+approaches speech power and the ASR loses roughly a third of its content (~350 vs ~490
+words at 0 dB) — a practical noise floor below which retrieval-based Q&A becomes unreliable.
 
 **Downstream spot-check (illustrative).** The golden in-slice questions (PMS-vs-MF,
 minimum investment, who-it's-for) answered from the clean vs the 5 dB transcript via
