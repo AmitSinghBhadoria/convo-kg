@@ -58,3 +58,19 @@ class QAResult(BaseModel):
     provenance: list[Provenance] = Field(default_factory=list)
     graph_node_ids: list[str] = Field(default_factory=list)   # nodes behind the answer (node-highlight UI)
     hops: Literal["single", "multi"] = "single"
+
+
+class CurvePoint(BaseModel):
+    snr: str                 # SNR level label, e.g. "10"
+    similarity: float        # transcript similarity vs clean baseline, [0,1]
+
+class SpotCheckRow(BaseModel):
+    question: str
+    clean_answer: str
+    degraded_answer: str
+    degraded_snr: int
+
+class EvalResult(BaseModel):
+    curve: list[CurvePoint] = Field(default_factory=list)
+    spotcheck: list[SpotCheckRow] = Field(default_factory=list)
+    meta: dict[str, Any] = Field(default_factory=dict)

@@ -17,5 +17,15 @@ extract:
   confidence_threshold: 0.6
 eval:
   snr_levels: [20, 15, 10, 5, 0]
+  source_clip: pms
+  slice_start_s: 0
+  slice_end_s: 160
+  noise_path: noices/cafe_16k.wav
+  clip_prefix: pmsslice
+  degraded_snr: 5
+  spotcheck_questions:
+    - "How does a PMS differ from a mutual fund?"
+    - "What is the minimum investment for a PMS?"
+    - "Who is a PMS suitable for?"
 limits:
   max_minutes: 15
