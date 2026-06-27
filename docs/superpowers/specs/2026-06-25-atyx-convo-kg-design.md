@@ -202,6 +202,9 @@ end-to-end run.
 9. How does a PMS differ from a mutual fund in regulation? → PMS/AIF light-touch (more manager latitude, performance fees); MF tightly defined. *(traverses PMS ∩ MF attributes on the regulation dimension)*
 
 ## 14. Frontend & API architecture (the demo surface)
+
+> **Authoritative Phase 5 contracts (2026-06-27):** `docs/superpowers/specs/2026-06-27-atyx-convo-kg-phase5-frontend-api-design.md`. The endpoint sketches below predate the locked contracts; that doc supersedes them — `/api/ask` returns the locked `QAResult` (not the `{answer,node_ids,…}` sketch), `/api/experiment` returns the Phase-4 one-curve + spot-check shape (not three curves + WER), the SSE streams `fact` events with the graph revealed from the authoritative pre-built graph on `done` (not streamed `graph_node`/`graph_edge`), and the UI is the approved dc-app wired in place (path a), not a from-scratch vanilla-JS rebuild.
+
 The demo UI is the approved **Atyx dark-editorial design** (`Ui-design/Atyx Convo-KG.html` prototype): Cormorant Garamond display + Inter UI + JetBrains Mono code, near-black canvas, gold accent. The prototype is a self-contained React/D3 bundle with **mock data + simulated timing**; we **rebuild it as clean, no-build source** and wire it to the real pipeline.
 
 **Stack:** vanilla JS + **D3** (graph + SNR curves), a single static page **served by a thin FastAPI backend** (no Node toolchain). Fonts vendored locally for offline reproducibility.
