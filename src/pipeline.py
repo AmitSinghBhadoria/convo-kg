@@ -62,6 +62,8 @@ def run_live(clip: str) -> Iterator[dict]:
     yield _stage_event(1, "active")
     try:
         diarize_asr_run(clip)
+        transcript_path = work_dir / f"{clip}.transcript.json"
+        transcript = Transcript.model_validate_json(transcript_path.read_text())
     except Exception as e:
         yield {"event": "error", "data": {"stage": "Diarization", "message": str(e)}}
         return
@@ -69,8 +71,6 @@ def run_live(clip: str) -> Iterator[dict]:
     yield _stage_event(2, "done")
 
     # Emit transcript lines
-    transcript_path = work_dir / f"{clip}.transcript.json"
-    transcript = Transcript.model_validate_json(transcript_path.read_text())
     for u in transcript.utterances:
         yield {
             "event": "transcript_line",
