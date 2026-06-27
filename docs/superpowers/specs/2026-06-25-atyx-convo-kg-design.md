@@ -172,15 +172,19 @@ end-to-end run.
 - **Precision over recall by design:** on hard/noisy audio the system yields fewer, lower-confidence, source-backed facts rather than a hallucinated graph. In the SNR experiment this degradation is **reported as intended behavior** (the threshold rejecting low-confidence facts), not silent failure.
 - No hardcoded speaker count (assume 2–4), domain, or format; **denoise always runs** (real input noise ≠ our synthetic mix).
 
-## 12. Evaluation harness (`evaluate.py`) — controlled-SNR, three curves
-`add_noise.py` mixes controlled noise at known SNRs over the clean baseline (a true single-variable experiment). At each SNR, measure the **whole chain** and plot **three curves on one SNR axis**:
-1. **Transcript similarity** vs the reference transcript — the *ceiling* (if ASR degrades, extraction can't recover facts that aren't in the transcript).
-2. **Fact-recall** vs ground-truth facts — the **hero metric**.
-3. **Q&A correctness** vs the answer key — the user-facing outcome.
+## 12. Evaluation harness (`evaluate.py`) — controlled-SNR
 
-The **gaps between curves** are the finding: facts robust while transcript degrades = "facts survive rough words"; falling together = front-end bottleneck.
+> **Narrowed in Phase 4 (2026-06-27) to match measured reality.** Full design + rationale: `docs/superpowers/specs/2026-06-27-atyx-convo-kg-phase4-eval-design.md`. Summary below.
 
-**Ground truth** (eval oracle, **never** the product path): scoped to the demo clip, **fact-level only** (~15–25 key facts + the demo-question answers). Built with the **best available oracle — a frontier model is permitted here** (a more accurate oracle = a more trustworthy metric; a weak tool would inject errors into the very thing we grade against) — to draft a clean transcript + fact list, then a **mandatory ~15-min human verification** pass correcting facts and spot-checking numbers/names against the audio (so we're never grading one model against another unchecked). Speaker noted only where attribution changes the fact. **Non-negotiable firewall:** all oracle/ground-truth code lives strictly in the eval path (`scripts/make_ground_truth.py`, `evaluate.py`) and is **never importable by the product path** — enforces the G4 product/eval separation.
+`add_noise.py` mixes **real café-babble noise** (`noices/cafe_16k.wav`) at known SNRs over the clean baseline slice — a true single-variable experiment (SNR is the only thing that changes; noise source is real multi-talker babble, the hard case for conversational ASR, not synthetic pink/white).
+
+**Hero curve = transcript similarity vs SNR**, oracle-free: each noisy transcript scored against the **clean slice run through the identical pipeline** (its own baseline transcript), via `evaltools.similarity` — a relative sequence+set fidelity blend in [0,1], not WER. Five SNR points (20/15/10/5/0 dB) trace the degradation **cliff**. This is the original three-curve §12's *ceiling* curve, **promoted to hero** because it is the measurement the pipeline can make cleanly and defensibly.
+
+**Why not three curves:** Phase 3 measured a hard **extraction ceiling** — the local ~9B model's fact extraction is nondeterministic at temp=0 and partially-recalling on noisy code-mixed Hinglish (`design_note.md § Measured capability boundary`). A fact-recall *curve* on top of that estimator would track **model variance, not noise** — dishonest as a graded metric. So fact-recall and Q&A-correctness become a **downstream spot-check**: golden Q&A run at clean vs a degraded SNR, presented side-by-side and **explicitly labelled "illustrative propagation, not a calibrated curve."** It shows the mechanism (worse transcript → worse answer) without overclaiming a number.
+
+**Outputs:** `data/ground_truth/snr_results.json`, `snr_curve.png` (labelled axes, **honest non-exaggerated y-floor**, annotated cliff), and a `design_note.md` results paragraph.
+
+**Scaling path (deferred, not built in v1):** a **calibrated fact-recall curve** needs (a) a stronger/Cypher-tuned extraction model to lift the ceiling and (b) a **frontier-oracle, human-verified, fact-level ground truth** (`scripts/make_ground_truth.py`, ~15–25 key facts + demo answers, ~15-min human-verify pass). That oracle machinery stays **strictly eval-path, never importable by the product path** (G4 firewall) — documented as the path to absolute WER + graded recall, intentionally out of Phase 4 scope.
 
 ## 13. Demo question set (tagged; draft answers from the reference transcript, pending verification)
 
@@ -258,7 +262,7 @@ Three entrypoints: **`run <audio>`** = product path (any clip → graph → Q&A,
 2. **Audio → English transcript** (denoise → diarize → ASR+translate); validate vs reference on `dev`/sample2, multiple SNRs. *(hardest; do first)*
 3. **Transcript → graph** (induced ontology, schema-enforced extraction, chunk+consolidate, Neo4j upsert).
 4. **Graph → answers** (schema-aware text-to-Cypher, single-hop; one worked multi-hop; returns subgraph node IDs + source).
-5. **Eval harness** (SNR sweep → three curves) + ground-truth build.
+5. **Eval harness** (controlled café-babble SNR sweep → transcript-fidelity hero curve + illustrative downstream spot-check; frontier-oracle fact-recall curve deferred to the scaling path).
 6. **Frontend + API**: FastAPI endpoints + SSE; rebuild the Atyx UI as vanilla JS/D3 from the prototype; wire Run live / Ask / Experiment to real streamed data.
 7. **Package** (README, demo walkthrough, design note).
 
