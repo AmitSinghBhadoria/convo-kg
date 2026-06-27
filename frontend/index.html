@@ -224,14 +224,13 @@ button { font:inherit; }
     <div style="width:100%; max-width:860px;">
       <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:#8A8579; margin-bottom:14px;">Experiment · SNR Degradation Study</div>
       <h1 style="font-family:'Cormorant Garamond',Georgia,serif; font-size:38px; font-weight:600; margin:0 0 10px; letter-spacing:0.005em; line-height:1.1;">Where the pipeline breaks under noise</h1>
-      <p style="font-size:14.5px; color:#8A8579; line-height:1.65; max-width:620px; margin:0 0 34px;">The same sample clip, degraded with café babble at controlled signal-to-noise ratios. Transcription holds up; downstream fact extraction and Q&amp;A do not.</p>
+      <p style="font-size:14.5px; color:#8A8579; line-height:1.65; max-width:620px; margin:0 0 34px;">The same sample clip, degraded with café babble at controlled signal-to-noise ratios. One metric measured: transcript similarity (cosine) vs clean reference.</p>
 
+      <sc-if value="{{ hasExp }}" hint-placeholder-val="{{ false }}">
       <div style="background:#141318; border:1px solid #232228; border-radius:14px; padding:26px 28px 22px;">
         <!-- legend -->
         <div style="display:flex; gap:24px; margin-bottom:18px; flex-wrap:wrap;">
           <span style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#9db4d0;"><span style="width:18px; height:2px; background:#6B8AAE;"></span>Transcript similarity</span>
-          <span style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#C8A24E; font-weight:500;"><span style="width:18px; height:3px; background:#C8A24E;"></span>Fact recall</span>
-          <span style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#d9d4cb;"><span style="width:18px; height:2px; background:#ECE8E1;"></span>Q&amp;A correctness</span>
         </div>
 
         <svg viewBox="0 0 640 360" style="width:100%; height:auto;">
@@ -245,33 +244,22 @@ button { font:inherit; }
             <text x="{{ x.x }}" y="322" text-anchor="middle" style="font-family:'JetBrains Mono',monospace; font-size:10.5px; fill:#8A8579;">{{ x.label }}</text>
           </sc-for>
           <text x="335" y="348" text-anchor="middle" style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.12em; fill:#5b5750;">SNR (dB) — NOISIER →</text>
-          <!-- curves -->
+          <!-- curve -->
           <polyline points="{{ simPts }}" fill="none" stroke="#6B8AAE" stroke-width="1.6" stroke-opacity="0.85" stroke-linecap="round" stroke-linejoin="round"></polyline>
-          <polyline points="{{ qaPts }}" fill="none" stroke="#ECE8E1" stroke-width="1.6" stroke-opacity="0.7" stroke-linecap="round" stroke-linejoin="round"></polyline>
-          <polyline points="{{ recallPts }}" fill="none" stroke="#C8A24E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
-          <sc-for list="{{ recallDots }}" as="d" hint-placeholder-count="5">
-            <circle cx="{{ d.cx }}" cy="{{ d.cy }}" r="3.5" fill="#C8A24E"></circle>
-          </sc-for>
         </svg>
 
-        <p style="font-size:13px; color:#8A8579; line-height:1.65; margin:18px 4px 0; padding-top:18px; border-top:1px solid #1c1b21;">
-          <span style="color:#C8A24E;">The gap widens as SNR falls.</span> Transcript similarity degrades gracefully to 0.79 at 0&nbsp;dB, but fact recall collapses to 0.41 and answer correctness to 0.30 — the operating floor sits around <span style="color:#ECE8E1;">10&nbsp;dB</span>, below which the graph starts losing facts faster than the transcript loses words.
-        </p>
+        <div style="margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#6B8299; letter-spacing:0.06em;">{{ curveLabel }}</div>
       </div>
 
-      <!-- table -->
-      <div style="margin-top:26px; background:#141318; border:1px solid #232228; border-radius:14px; overflow:hidden;">
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; padding:13px 22px; border-bottom:1px solid #232228; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.13em; text-transform:uppercase; color:#8A8579;">
-          <span>SNR</span><span style="text-align:right;">Facts found</span><span style="text-align:right;">Word error rate</span>
+      <div style="margin-top:22px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#8a7330; letter-spacing:0.05em;">{{ spotLabel }}</div>
+      <sc-for list="{{ spotRows }}" as="r" hint-placeholder-count="3">
+        <div style="margin-top:12px; padding:12px; border:1px solid #232228; border-radius:9px;">
+          <div style="color:#ECE8E1; font-size:13px; margin-bottom:6px;">{{ r.question }}</div>
+          <div style="color:#8A8579; font-size:12px;">clean → {{ r.clean }}</div>
+          <div style="color:#8A8579; font-size:12px;">{{ r.degradedSnr }} → {{ r.degraded }}</div>
         </div>
-        <sc-for list="{{ table }}" as="r" hint-placeholder-count="5">
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; padding:13px 22px; border-bottom:1px solid #1a191e; font-family:'JetBrains Mono',monospace; font-size:13px;">
-            <span style="color:#d9d4cb;">{{ r.snr }}</span>
-            <span style="text-align:right; color:{{ r.factColor }};">{{ r.facts }}</span>
-            <span style="text-align:right; color:#8A8579;">{{ r.wer }}</span>
-          </div>
-        </sc-for>
-      </div>
+      </sc-for>
+      </sc-if>
       <div style="height:30px;"></div>
     </div>
   </div>
@@ -310,19 +298,7 @@ class Component extends DCLogic {
     { id:'mf', q:'Which product has no minimum?', main:'Mutual funds', tail:'No floor — SIPs can start at just ₹500 per month.', nodeIds:['mf','n500'], srcLine:4, source:'S1 · 1:02', cypher:"MATCH (e:Entity)-[:MIN_SIP]->(v:Amount)\nRETURN e.name, v.display" },
   ];
 
-  chart = {
-    snr:[20,15,10,5,0],
-    sim:[0.98,0.96,0.93,0.88,0.79],
-    recall:[0.95,0.90,0.82,0.66,0.41],
-    qa:[0.93,0.86,0.74,0.55,0.30],
-    table:[
-      { snr:'20 dB', facts:'12 / 12', wer:'6%',  hi:true },
-      { snr:'15 dB', facts:'11 / 12', wer:'9%',  hi:true },
-      { snr:'10 dB', facts:'10 / 12', wer:'15%', hi:true },
-      { snr:'5 dB',  facts:'8 / 12',  wer:'27%', hi:false },
-      { snr:'0 dB',  facts:'5 / 12',  wer:'41%', hi:false },
-    ],
-  };
+  chart = null;
 
   tRef = React.createRef();
   chatRef = React.createRef();
@@ -332,6 +308,9 @@ class Component extends DCLogic {
       this.graphNodes = this.layoutNodes(g.nodes);
       this.graphEdges = g.edges.map(e => ({ from:e.from, to:e.to, label:e.relation }));
       this.setState(st => ({ nodes: this.graphNodes.length }));   // reveal all nodes
+    }).catch(() => {});
+    fetch('/api/experiment').then(r => r.json()).then(ex => {
+      this.chart = ex; this.forceUpdate();
     }).catch(() => {});
   }
 
@@ -491,12 +470,26 @@ class Component extends DCLogic {
     }));
 
     const c = this.chart;
-    const px = i => 70 + i * ((600 - 70) / 4);
-    const py = v => 300 - v * (300 - 40);
-    const toPts = arr => arr.map((v, i) => `${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(' ');
-    const ylabels = [0, 0.25, 0.5, 0.75, 1].map(v => ({ y:py(v), ty:py(v)+3.5, label:v.toFixed(2) }));
-    const xlabels = c.snr.map((s, i) => ({ x:px(i), label:s }));
-    const table = c.table.map(r => ({ snr:r.snr, facts:r.facts, wer:r.wer, factColor: r.hi ? '#C8A24E' : '#9b7a3a' }));
+    let expVals = { hasExp:false };
+    if (c) {
+      const snr = c.curve.map(p => Number(p.snr));
+      const sim = c.curve.map(p => p.similarity);
+      const px = i => 70 + i * ((600 - 70) / Math.max(snr.length - 1, 1));
+      const py = v => 300 - v * (300 - 40);                 // honest y-floor at 0
+      const simPts = sim.map((v, i) => `${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(' ');
+      expVals = {
+        hasExp:true,
+        simPts,
+        ylabels: [0, 0.25, 0.5, 0.75, 1].map(v => ({ y:py(v), ty:py(v)+3.5, label:v.toFixed(2) })),
+        xlabels: snr.map((s, i) => ({ x:px(i), label:s })),
+        curveLabel: c.labels.curve,
+        spotLabel: c.labels.spotcheck,
+        spotRows: c.spotcheck.map(r => ({
+          question:r.question, clean:r.clean_answer, degraded:r.degraded_answer,
+          degradedSnr: r.degraded_snr + ' dB',
+        })),
+      };
+    }
 
     return {
       isConsole: st.screen==='console',
@@ -530,9 +523,7 @@ class Component extends DCLogic {
       suggestGate: 'opacity:1; pointer-events:auto;',
       inputGate: 'opacity:1; pointer-events:auto;',
 
-      simPts:toPts(c.sim), recallPts:toPts(c.recall), qaPts:toPts(c.qa),
-      recallDots: c.recall.map((v, i) => ({ cx:px(i), cy:py(v) })),
-      ylabels, xlabels, table,
+      ...expVals,
     };
   }
 }
