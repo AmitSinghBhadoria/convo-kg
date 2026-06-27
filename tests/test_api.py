@@ -1,9 +1,37 @@
+import io
 import pytest
 from fastapi.testclient import TestClient
+import src.api as api
 from src.api import app
 
 client = TestClient(app)
 
+
+# ── Upload tests ─────────────────────────────────────────────────────────────
+
+def test_upload_rejects_too_long(monkeypatch):
+    monkeypatch.setattr(api.audioprep, "probe_duration", lambda p: 601.0)
+    monkeypatch.setattr(api.audioprep, "to_16k_mono", lambda s, d: None)
+    r = client.post("/api/upload", files={"file": ("x.wav", io.BytesIO(b"RIFFxxxx"), "audio/wav")})
+    assert r.status_code == 400 and "10 min" in r.json()["detail"]
+
+def test_upload_rejects_non_audio(monkeypatch):
+    def boom(p): raise ValueError("not audio")
+    monkeypatch.setattr(api.audioprep, "probe_duration", boom)
+    r = client.post("/api/upload", files={"file": ("x.txt", io.BytesIO(b"hello"), "text/plain")})
+    assert r.status_code == 400
+
+def test_upload_accepts_valid(monkeypatch, tmp_path):
+    monkeypatch.setattr(api.audioprep, "probe_duration", lambda p: 42.0)
+    written = {}
+    monkeypatch.setattr(api.audioprep, "to_16k_mono", lambda s, d: written.update(dst=d))
+    r = client.post("/api/upload", files={"file": ("x.wav", io.BytesIO(b"RIFFxxxx"), "audio/wav")})
+    assert r.status_code == 200
+    cid = r.json()["clip_id"]
+    assert cid and written["dst"].endswith(f"{cid}.wav")
+
+
+# ── Existing tests ────────────────────────────────────────────────────────────
 
 def test_root_serves_frontend():
     r = client.get("/")

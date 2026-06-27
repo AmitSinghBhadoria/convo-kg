@@ -12,6 +12,7 @@ dependencies = [
   "python-dotenv>=1.0",
   "fastapi>=0.110",
   "uvicorn>=0.29",
+  "python-multipart>=0.0.9",
   "tiktoken>=0.7",
   "neo4j>=5.20",
   "matplotlib>=3.8",

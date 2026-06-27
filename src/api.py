@@ -7,11 +7,14 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+import tempfile
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import src.audioprep as audioprep
 from src.config import load_config
 from src.contracts import Transcript
 from src.graph import connect, read_graph
@@ -99,6 +102,40 @@ def api_run_stream(run_id: str, replay: int = 0):
             yield _sse("error", {"message": str(e)})
 
     return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@app.post("/api/upload")
+async def api_upload(file: UploadFile = File(...)) -> dict:
+    """Accept a multipart audio upload, validate duration ≤ 10 min, prep to 16 kHz mono.
+
+    Returns ``{"clip_id": str}`` on success; HTTP 400 on non-audio or > 600 s.
+    No Neo4j write; no src.qa import.
+    """
+    uploads_dir = Path(CFG.paths.uploads)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    clip_id = "upload_" + uuid.uuid4().hex[:10]
+    out_path = uploads_dir / f"{clip_id}.wav"
+
+    # Write upload to a temp file so ffprobe/ffmpeg can open it by path.
+    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename or "upload").suffix) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        try:
+            duration = audioprep.probe_duration(tmp_path)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="could not read audio — upload a valid audio file")
+
+        if duration > 600:
+            raise HTTPException(status_code=400, detail="clip too long — 10 min max")
+
+        audioprep.to_16k_mono(tmp_path, str(out_path))
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    return {"clip_id": clip_id}
 
 
 # Static mount LAST so /api/* routes win.
