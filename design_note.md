@@ -124,12 +124,45 @@ answer grounded in the returned rows, with a semantic fallback over statement em
   answerable questions score 0.54–0.70 and off-topic ones 0.22–0.23; the floor is 0.40.
   Verified: "What is the capital of France?" → "I couldn't find that in the conversation."
 
-## Evaluation: accuracy vs noise — _(pending: Phase 4)_
+## Phase 4 — Controlled-SNR results
 
-Controlled-SNR harness with three curves: transcript-similarity (ceiling) → fact-recall
-(hero) → Q&A-correctness (outcome). Ground truth is fact-level for the demo clip, built
-with a frontier oracle in the eval path only (never importable by the product path), then
-human-verified. Numbers go here once the harness runs.
+**Setup.** A 160 s **2-speaker conversational slice** of the real PMS clip, mixed with
+**real café-babble noise** (`noices/cafe_16k.wav`) at five SNR levels (20/15/10/5/0 dB)
+— SNR the single controlled variable. Each noisy clip runs the full denoise→diarize→ASR
+front-end; the resulting transcript is scored against the **clean slice through the
+identical pipeline** (oracle-free) with `evaltools.similarity` (a relative sequence+set
+fidelity blend in [0,1], **not WER**).
+
+**Hero curve (`data/ground_truth/snr_curve.png`).** Transcript fidelity vs SNR:
+20 dB → 0.5479, 15 dB → 0.5932, 10 dB → 0.6253, 5 dB → 0.4525, 0 dB → 0.2873. The
+front-end shows a roughly flat, slightly-rising shoulder from 20→10 dB — absolute fidelity
+sits at only 0.55–0.63 even at the cleanest tested level, well within ASR/diarization
+run-to-run variance (the relative metric plus diarization-segmentation differences mean
+even lightly-noised transcripts diverge from the clean baseline). Then a **sharp cliff
+below 5 dB**: similarity drops from 0.6253 at 10 dB to 0.2873 at 0 dB. The **cliff at
+5 dB is the finding** — this is not smooth monotonic degradation. For field deployments,
+it identifies a practical noise floor below which the ASR loses roughly a third of content
+and retrieval-based Q&A becomes unreliable.
+
+**Downstream spot-check (illustrative).** The golden in-slice questions (PMS-vs-MF,
+minimum investment, who-it's-for) answered from the clean vs the 5 dB transcript via
+**transcript-grounded retrieval** (cosine top-k over the transcript; **not** the full
+extract→graph→Q&A product path, by design — extraction's nondeterministic ceiling is kept
+out of every measured path). At clean, two of three questions get on-topic answers
+(PMS-vs-MF: a 5-point breakdown; who-it's-for: "affluent HNIs with higher risk
+appetite"); at 5 dB the results are non-monotonic — PMS-vs-MF retrieval reports the
+content absent from the degraded transcript, who-it's-for names a different audience
+("younger professionals"), and minimum-investment unexpectedly surfaces a figure ("50")
+that clean retrieval did not, reflecting diarization-segmentation non-determinism rather
+than a clean degradation slope. This is **illustrative propagation, not a calibrated
+curve.**
+
+**Honest limits.** No absolute WER (needs a verified reference transcript). No fact-recall
+or Q&A-correctness *curve* — on noisy code-mixed Hinglish the local ~9B extractor is
+nondeterministic and partially-recalling, so a curve through it would track model variance,
+not noise (§ Measured capability boundary). The scaling path to a calibrated fact-recall
+curve — a stronger/Cypher-tuned extractor + a frontier-oracle, human-verified fact-level
+ground truth — is documented in the design spec §9, deliberately out of v1.
 
 ## Measured capability boundary (real 10-min multi-party Hinglish, local ~9B)
 

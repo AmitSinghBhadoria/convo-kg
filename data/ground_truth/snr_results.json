@@ -1,0 +1,69 @@
+{
+  "meta": {
+    "source_clip": "pms",
+    "slice_s": [
+      0,
+      160
+    ],
+    "noise": "noices/cafe_16k.wav",
+    "snr_levels": [
+      20,
+      15,
+      10,
+      5,
+      0
+    ],
+    "degraded_snr": 5,
+    "speakers": [
+      "SPEAKER_00",
+      "SPEAKER_01"
+    ],
+    "metric": "evaltools.similarity (relative sequence+set fidelity, not WER)"
+  },
+  "labels": {
+    "curve": "transcript fidelity vs SNR \u2014 relative sequence+set similarity (not WER); reference is the clean slice through the identical pipeline",
+    "spotcheck": "illustrative propagation, not a calibrated curve; transcript-grounded retrieval, not the full product path"
+  },
+  "curve": [
+    {
+      "snr": "20",
+      "similarity": 0.5479
+    },
+    {
+      "snr": "15",
+      "similarity": 0.5932
+    },
+    {
+      "snr": "10",
+      "similarity": 0.6253
+    },
+    {
+      "snr": "5",
+      "similarity": 0.4525
+    },
+    {
+      "snr": "0",
+      "similarity": 0.2873
+    }
+  ],
+  "spotcheck": [
+    {
+      "question": "How does a PMS differ from a mutual fund?",
+      "clean_answer": "A PMS differs from a mutual fund in several key ways:\n\n1. **Target Audience**: A PMS is designed for affluent High-Net-Worth Individuals (HNIs), whereas mutual funds are generally open to a broader range of investors.\n2. **Regulatory Oversight**: PMS and Alternative Investment Funds (AIF) operate under relatively \"light touch\" regulation compared to mutual funds, giving fund managers more latitude in their operations.\n3. **Investment Flexibility**: In a PMS or AIF, there are no strict definitions for large-cap, mid-cap, or small-cap investments, unlike mutual funds where these categories are well-defined.\n4. **Fee Structures**: PMS allows for various fee structures including performance-linked fees (based on alpha generated), hurdle-linked fees, flat fees, and alpha-linked fees, which are not typically available in the same form in mutual funds.\n5. **Return Expectations**: While some may expect higher returns from a PMS compared to a mutual fund, this is not guaranteed.",
+      "degraded_answer": "The provided text does not contain the answer to how a PMS differs from a mutual fund.",
+      "degraded_snr": 5
+    },
+    {
+      "question": "What is the minimum investment for a PMS?",
+      "clean_answer": "The provided graph rows and source statements do not contain information about the minimum investment for a PMS.",
+      "degraded_answer": "50 (likely referring to 50 lakh or 50 million based on context of PMS regulations, though the exact unit is not specified in the provided text). The source states: 'PMS has a minimum 50'.",
+      "degraded_snr": 5
+    },
+    {
+      "question": "Who is a PMS suitable for?",
+      "clean_answer": "A PMS is suitable for affluent HNIs (High Net-worth Individuals) who have a higher risk appetite and a better understanding of investment products.",
+      "degraded_answer": "PMS is suitable for younger professionals who have accumulated a certain amount and are interested in adding it to their portfolio.",
+      "degraded_snr": 5
+    }
+  ]
+}

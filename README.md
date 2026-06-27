@@ -101,3 +101,19 @@ PMS / AIF / mutual funds. `<clip>` is a stem under `data/raw/` / `data/work/`. R
 > real noisy code-mixed Hinglish is the measured bottleneck (a local ~9B ceiling, not the
 > pipeline) — see `design_note.md` § *Measured capability boundary* for the full evidence
 > and the fix path.
+
+### Evaluation (controlled-SNR)
+
+Reproduce the café-babble SNR sweep and the fidelity curve:
+
+```bash
+# 1. Sweep (long, ~20 min): cut the slice, mix all 5 SNR levels, run denoise+ASR
+source .venv/bin/activate && python -m scripts.prep_eval_clips
+# 2. Build the hero curve + spot-check artifacts (needs LM Studio for the spot-check)
+source .venv/bin/activate && python -m src.evaluate
+# -> data/ground_truth/snr_results.json + snr_curve.png
+```
+
+The curve is **transcript fidelity vs SNR** (relative similarity, not WER); the
+downstream Q&A spot-check is **illustrative, transcript-grounded retrieval**, not the
+full product path. See `design_note.md § Phase 4 — Controlled-SNR results`.
