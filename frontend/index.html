@@ -200,6 +200,9 @@ button { font:inherit; }
             </div>
           </sc-if>
         </sc-for>
+        <sc-if value="{{ asking }}" hint-placeholder-val="{{ false }}">
+          <div style="align-self:flex-start; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.12em; color:#C8A24E;">Atyx is thinking<span style="animation:atyxblink 1s infinite;">…</span></div>
+        </sc-if>
       </div>
 
       <div style="flex:0 0 auto; padding:13px 18px 18px; border-top:1px solid #1c1b21;">
@@ -278,7 +281,7 @@ button { font:inherit; }
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0 };
+  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false };
 
   transcript = [
     { sp:'S1', t:'0:08', text:'For PMS, the minimum ticket size is fifty lakhs — SEBI mandated.' },
@@ -362,24 +365,37 @@ class Component extends DCLogic {
     this.elTimer = setInterval(() => this.setState({ elapsed:(Date.now()-this.startTs)/1000 }), 100);
   };
 
-  ask = (id) => {
-    if(this.state.run!=='done') return;
-    let p = id && this.presets.find(x => x.id===id);
-    let userText;
-    if(p){ userText = p.q; }
-    else {
-      const raw = (this.state.q||'').trim();
-      if(!raw) return;
-      userText = raw;
-      const s = raw.toLowerCase();
-      if(s.includes('aif')) p = this.presets[1];
-      else if(s.includes('mutual') || s.includes('no min') || s.includes('sip')) p = this.presets[2];
-      else p = this.presets[0];
+  ask = async (id) => {
+    const preset = id ? this.presets.find(x => x.id === id) : null;
+    const userText = preset ? preset.q : (this.state.q || '').trim();
+    if (!userText) return;
+    this.setState(st => ({ messages:[...st.messages, { role:'user', text:userText }], q:'', asking:true }));
+    try {
+      const res = await fetch('/api/ask', {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ question: userText }),
+      });
+      const qa = await res.json();
+      this.setState(st => ({ messages:[...st.messages, this.qaToMessage(qa)], asking:false }));
+    } catch (e) {
+      this.setState(st => ({ messages:[...st.messages,
+        { role:'assistant', main:'Could not reach the model.', tail:String(e), nodeIds:[] }], asking:false }));
     }
-    const userMsg = { role:'user', text:userText };
-    const botMsg = { role:'assistant', main:p.main, tail:p.tail, source:p.source, cypher:p.cypher, nodeIds:p.nodeIds, srcLine:p.srcLine, cypherOpen:false };
-    this.setState(st => ({ messages:[...st.messages, userMsg, botMsg], ans:p.id, q:'' }));
   };
+
+  qaToMessage(qa) {
+    const src = (qa.provenance && qa.provenance[0]) || null;
+    return {
+      role:'assistant',
+      main: qa.found ? qa.answer : 'No answer found in the graph.',
+      tail: src ? (src.kind === 'source' ? 'Source' : 'Related context') : '',
+      source: src ? `${src.speaker}: "${src.text}"` : null,
+      cypher: qa.cypher || null,
+      nodeIds: qa.graph_node_ids || [],
+      srcLine: -1,
+      cypherOpen: false,
+    };
+  }
 
   toggleCy = (i) => {
     this.setState(st => ({ messages: st.messages.map((m, j) => j===i ? { ...m, cypherOpen:!m.cypherOpen } : m) }));
@@ -493,7 +509,8 @@ class Component extends DCLogic {
       notEmpty: st.run!=='idle',
       rows, tRef:this.tRef, nodes, edges,
 
-      notDone: !done,
+      notDone: false,            // chat is grounded in the pre-built authoritative graph
+      asking: st.asking,
       q:st.q,
       onQ: e => this.setState({ q:e.target.value }),
       onAsk: () => this.ask(null),
@@ -503,8 +520,8 @@ class Component extends DCLogic {
       chatEmpty: st.messages.length===0,
       suggestions,
       emptyPrompt: done ? 'Ask anything about the conversation.' : 'Run the pipeline to ground the chat.',
-      suggestGate:`opacity:${done?1:0.4}; pointer-events:${done?'auto':'none'};`,
-      inputGate:`opacity:${done?1:0.4}; pointer-events:${done?'auto':'none'};`,
+      suggestGate: 'opacity:1; pointer-events:auto;',
+      inputGate: 'opacity:1; pointer-events:auto;',
 
       simPts:toPts(c.sim), recallPts:toPts(c.recall), qaPts:toPts(c.qa),
       recallDots: c.recall.map((v, i) => ({ cx:px(i), cy:py(v) })),
