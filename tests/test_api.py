@@ -90,7 +90,8 @@ def test_select_facts_clip_no_neo4j_write(monkeypatch):
     assert r.status_code == 200 and r.json()["mode"] == "live"
 
 def test_run_live_mode_drives_orchestrator(monkeypatch):
-    api._ACTIVE_CLIP = "upload_abc"; api._CLIP_MODE = {"upload_abc": "live"}
+    monkeypatch.setattr(api, "_ACTIVE_CLIP", "upload_abc")
+    monkeypatch.setattr(api, "_CLIP_MODE", {"upload_abc": "live"})
     def fake_live(clip):
         yield {"event": "stage", "data": {"index": 0, "label": "Speech enhancement", "sub": "x", "status": "active"}}
         yield {"event": "done", "data": {"clip": clip}}

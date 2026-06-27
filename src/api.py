@@ -136,7 +136,6 @@ def _sse(event: str, data: dict) -> str:
 
 @app.get("/api/run/{run_id}/stream")
 def api_run_stream(run_id: str, replay: int = 0):
-    global _LIVE_RUNNING
     clip = _RUNS.get(run_id, CFG.demo.clip)
     work = Path(CFG.paths.work)
 
