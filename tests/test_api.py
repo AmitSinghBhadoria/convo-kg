@@ -74,6 +74,32 @@ def test_run_stream_emits_stage_and_done():
     assert "event: transcript_line" in body                      # transcript replayed
 
 
+# ── Task 4: clips / select_clip / live-mode dispatch ────────────────────────
+
+def test_clips_lists_registry():
+    r = client.get("/api/clips")
+    assert r.status_code == 200
+    body = r.json()
+    assert "active" in body and any(c["id"] == "pms" for c in body["clips"])
+    assert all({"id","label","mode"} <= set(c) for c in body["clips"])
+
+def test_select_facts_clip_no_neo4j_write(monkeypatch):
+    # selecting a non-graph clip must not call connect()/restore
+    monkeypatch.setattr(api, "connect", lambda *a, **k: (_ for _ in ()).throw(AssertionError("neo4j touched")))
+    r = client.post("/api/select_clip", json={"id": "upload_abc"})
+    assert r.status_code == 200 and r.json()["mode"] == "live"
+
+def test_run_live_mode_drives_orchestrator(monkeypatch):
+    api._ACTIVE_CLIP = "upload_abc"; api._CLIP_MODE = {"upload_abc": "live"}
+    def fake_live(clip):
+        yield {"event": "stage", "data": {"index": 0, "label": "Speech enhancement", "sub": "x", "status": "active"}}
+        yield {"event": "done", "data": {"clip": clip}}
+    monkeypatch.setattr(api.pipeline, "run_live", fake_live)
+    rid = client.post("/api/run").json()["run_id"]
+    body = client.get(f"/api/run/{rid}/stream").text
+    assert "event: stage" in body and "event: done" in body
+
+
 @pytest.mark.integration
 def test_alignment_gate_golden_question_node_ids_match_graph():
     # The hero payoff (ask -> nodes light up) requires QAResult.graph_node_ids to be
