@@ -49,14 +49,14 @@ Rationale: **multi-talker babble is both realistic and the hard case for convers
 
 **Scope discipline (approved):** the **café-babble 5-point hero curve is THE Phase 4 deliverable.** `eating.wav` / restaurant noise are *optional comparison points only if time allows AFTER* the babble curve is done — do **not** expand the noise battery now and eat the Phase 5 buffer.
 
-## 6. The slice — dense, multi-party, golden-fact-bearing
+## 6. The slice — multi-party, golden-fact-bearing
 A **160 s slice (`pms.wav[0:160]`)** is the evaluation clip. Chosen against three constraints:
-1. **Representative & multi-party** — contains 3 distinct speakers (SPEAKER_01/02/03) in natural overlapping conversation, exercising diarization under noise.
+1. **Representative & multi-party** — fresh diarization on the slice labels **2 speakers** (SPEAKER_00/01) in natural back-and-forth (one asks, the expert answers at length), exercising diarization under noise. (The full clip's 4 global speaker labels do not carry into a slice — diarization is re-run per clip and labels are local.)
 2. **Bounded compute** — ~160 s × 6 runs (clean + 5 SNRs) through the real denoise+ASR pipeline fits the Phase 4 time budget.
-3. **Carries the golden-Q&A facts (verify before relying on it).** The downstream spot-check (§7) runs the golden questions — PMS-vs-MF, investment strategy, who-it's-for. The slice **must** contain the statements those questions answer, or the spot-check has nothing to land on. The window was picked to include them (early statements `stmt:pms:0`, `stmt:pms:3`); **this overlap is verified against the clean baseline transcript before the spot-check is trusted** (a build-time gate, not an assumption).
+3. **Carries the golden-Q&A facts (verified, not assumed).** The §6 build-time gate ran against the clean baseline transcript and confirms the window's content: **PMS-vs-Mutual-Fund is strongly present** ("there are quite a few mutual funds which are run as if they are a PMS"; 8× "mutual fund", 16× "PMS"), along with **fees/minimums** (₹ lakh/crore, light-touch regulation), **White Oak** (offers both), and the **audience** ("we're working with a lot of younger investors"). The literal "transparency" and "strategy" statements fall **outside** this window — so the spot-check (§7) uses the facts that **are** in the slice, per the approved contingency, rather than questions the slice cannot answer. The alternative 360–520 s window was rejected because the gate found it carries **zero** golden facts.
 
 ## 7. Downstream spot-check — illustrative, not calibrated
-After the hero curve, a **bounded** look at propagation: take the **clean** and **one degraded** SNR transcript, run the **golden Q&A questions** against the graph built from each, and present the answers **side by side** to *show* front-end degradation flowing into the answer.
+After the hero curve, a **bounded** look at propagation: take the **clean** and **one degraded** SNR transcript, run the **in-slice golden Q&A questions** (verified present in §6 — PMS-vs-Mutual-Fund, fees/minimums, who-it's-for) against the graph built from each, and present the answers **side by side** to *show* front-end degradation flowing into the answer.
 
 This is **explicitly labelled on every artifact as "illustrative propagation, not a calibrated curve."** It is one or two concrete before/after examples, not a scored accuracy metric — because (per §2) the extraction estimator is too noisy to calibrate. It demonstrates the *mechanism* (worse transcript → worse/missing answer) honestly, without overclaiming a number.
 
