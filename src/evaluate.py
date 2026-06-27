@@ -18,6 +18,9 @@ from src.evaltools import similarity, transcript_text
 from src.llm import LLM
 from src.qa import compose_answer, top_k_statements
 
+import matplotlib
+matplotlib.use("Agg")  # non-interactive backend; set once at import
+
 
 def snr_curve(baseline: Transcript,
               noisy: dict[str, Transcript]) -> list[CurvePoint]:
@@ -81,9 +84,7 @@ def _y_limits(curve: list[CurvePoint]) -> tuple[float, float]:
     return (0.0, 1.02)
 
 
-def _render_png(curve: list[CurvePoint], meta: dict, out_png: str) -> None:
-    import matplotlib
-    matplotlib.use("Agg")
+def _render_png(curve: list[CurvePoint], out_png: str) -> None:
     import matplotlib.pyplot as plt
 
     xs = [int(p.snr) for p in curve]
@@ -120,7 +121,7 @@ def emit_results(curve: list[CurvePoint],
         "spotcheck": [r.model_dump() for r in spotcheck],
     }
     Path(out_json).write_text(json.dumps(payload, indent=2))
-    _render_png(curve, meta, out_png)
+    _render_png(curve, out_png)
     return out_json, out_png
 
 

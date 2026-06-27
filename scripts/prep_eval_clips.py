@@ -12,6 +12,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import soundfile as sf
 
 import add_noise as an
@@ -20,8 +21,8 @@ from src.config import load_config
 SR = 16000
 
 
-def write_and_run(clip: str, audio, raw_dir: Path) -> None:
-    sf.write(str(raw_dir / f"{clip}.wav"), audio, SR)
+def write_and_run(clip: str, audio: np.ndarray, raw_dir: Path) -> None:
+    sf.write(raw_dir / f"{clip}.wav", audio, SR)
     print(f"[{clip}] enhance...", flush=True)
     subprocess.run([sys.executable, "-m", "src.enhance", clip], check=True)
     print(f"[{clip}] diarize_asr...", flush=True)
