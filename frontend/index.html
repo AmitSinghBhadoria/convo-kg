@@ -72,7 +72,6 @@ button { font:inherit; }
             <div style="font-size:13.5px; color:#ECE8E1; font-weight:500;">PMS&#8209;advisory.wav</div>
             <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#5b5750; margin-top:3px; letter-spacing:0.04em;">1:35 · 16 kHz · 2 spk</div>
           </div>
-          <span style="color:#5b5750; font-size:12px;">▾</span>
         </div>
       </div>
 
@@ -346,6 +345,8 @@ class Component extends DCLogic {
       this.clips = clips || [];
       const active = this.clips.find(c => c.active);
       if (active && active.mode && active.mode !== 'graph') {
+        // Both must be set together: instance prop is the read source (renderVals reads this.clipMode
+        // directly); state copy triggers a re-render so the UI reflects the new mode.
         this.clipMode = active.mode;
         this.setState({ clipMode: active.mode });
       }
@@ -456,10 +457,15 @@ class Component extends DCLogic {
         return;
       }
       const { clip_id } = await r.json();
-      await fetch('/api/select_clip', {
+      const res = await fetch('/api/select_clip', {
         method:'POST', headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ id: clip_id }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail:'select_clip failed' }));
+        this.setState(st => ({ liveFacts:[...(st.liveFacts||[]), 'error: ' + (err.detail||'select_clip failed')] }));
+        return;
+      }
       this.clipMode = 'live';
       this.setState({ clipMode:'live', run:'idle' });
       this.startRun();
