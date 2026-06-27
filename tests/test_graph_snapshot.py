@@ -21,3 +21,21 @@ def test_snapshot_restore_roundtrips_exact_counts():
         assert {n["id"] for n in after["nodes"]} == {n["id"] for n in before["nodes"]}
     finally:
         drv.close()
+
+
+@pytest.mark.integration
+def test_read_graph_returns_concept_nodes_and_fact_edges():
+    import os
+    from src.graph import connect, read_graph
+    drv = connect(); db = os.environ.get("NEO4J_DATABASE", "neo4j")
+    try:
+        g = read_graph(drv, db)
+    finally:
+        drv.close()
+    assert g["nodes"] and g["edges"]
+    labels = {n["label"] for n in g["nodes"]}
+    assert labels <= {"Entity", "Attribute", "Claim"}        # concept nodes only
+    assert "Statement" not in labels and "Speaker" not in labels
+    assert all({"id", "label", "type", "name"} <= n.keys() for n in g["nodes"])
+    ids = {n["id"] for n in g["nodes"]}
+    assert all(e["from"] in ids and e["to"] in ids for e in g["edges"])   # edges close over nodes

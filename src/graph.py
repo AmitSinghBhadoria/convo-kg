@@ -278,3 +278,28 @@ def restore_graph(driver, database, snap: dict, wipe: bool = True) -> None:
                 f"MATCH (a {{id:$s}}), (b {{id:$e}}) "
                 f"MERGE (a)-[rel:`{r['type']}`]->(b) SET rel += $props",
                 s=r["start"], e=r["end"], props=r["props"]))
+
+
+# ---------------------------------------------------------------------------
+# Concept graph reader (for the UI)
+# ---------------------------------------------------------------------------
+
+def read_graph(driver, database) -> dict:
+    """Concept graph for the UI: :Entity/:Attribute/:Claim nodes + the fact edges
+    between them. The :Speaker/:Statement backbone is provenance, not concept nodes."""
+    with driver.session(database=database) as session:
+        nodes = session.execute_read(lambda tx: [
+            {"id": r["id"], "label": r["label"], "type": r["type"], "name": r["name"]}
+            for r in tx.run(
+                "MATCH (n) WHERE n:Entity OR n:Attribute OR n:Claim "
+                "RETURN n.id AS id, labels(n)[0] AS label, n.type AS type, n.name AS name")
+        ])
+        edges = session.execute_read(lambda tx: [
+            {"from": r["a"], "to": r["b"], "relation": r["rel"]}
+            for r in tx.run(
+                "MATCH (a)-[r]->(b) "
+                "WHERE (a:Entity OR a:Attribute OR a:Claim) "
+                "AND (b:Entity OR b:Attribute OR b:Claim) "
+                "RETURN a.id AS a, b.id AS b, type(r) AS rel")
+        ])
+    return {"nodes": nodes, "edges": edges}
