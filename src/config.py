@@ -15,6 +15,13 @@ class ExtractCfg(BaseModel):
 
 class EvalCfg(BaseModel):
     snr_levels: list[int]
+    source_clip: str = "pms"
+    slice_start_s: int = 0
+    slice_end_s: int = 160
+    noise_path: str = "noices/cafe_16k.wav"
+    clip_prefix: str = "pmsslice"
+    degraded_snr: int = 5
+    spotcheck_questions: list[str] = []
 
 class Limits(BaseModel):
     max_minutes: int
