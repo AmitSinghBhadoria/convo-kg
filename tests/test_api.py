@@ -39,6 +39,7 @@ def test_alignment_gate_golden_question_node_ids_match_graph():
     graph_ids = {n["id"] for n in client.get("/api/graph").json()["nodes"]}
     qa = client.post("/api/ask",
                      json={"question": "What is the fee structure of a PMS?"}).json()
-    if qa["mode"] == "cypher" and qa["graph_node_ids"]:
-        missing = [i for i in qa["graph_node_ids"] if i not in graph_ids]
-        assert not missing, f"node-id format drift — not in /api/graph: {missing}"
+    assert qa["mode"] == "cypher", f"golden question fell back ({qa['mode']}) — cypher/node-id regression"
+    assert qa["graph_node_ids"], "graph_node_ids empty — node-id extraction regressed"
+    missing = [i for i in qa["graph_node_ids"] if i not in graph_ids]
+    assert not missing, f"node-id format drift — not in /api/graph: {missing}"
