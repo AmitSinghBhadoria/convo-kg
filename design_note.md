@@ -105,11 +105,24 @@ to multi-hop.
 - **End-to-end** (verified on sample2): a non-empty, fully source-traceable, idempotent
   graph (re-running the upsert does not change node counts).
 
-## Q&A — _(pending: Phase 3)_
+## Q&A — _(built: Phase 3)_
 
-NL question → text-to-Cypher → run → LLM composes an English answer, with a
-keyword/embedding fallback. Source-grounding (every fact cites its statement) is the
-load-bearing anti-hallucination guarantee.
+NL question → schema-aware text-to-Cypher → run (read-only) → LLM composes an English
+answer grounded in the returned rows, with a semantic fallback over statement embeddings.
+- **Read-only, defense in depth:** generated Cypher is rejected if it contains a write
+  clause (text guard), validated via `EXPLAIN` with retry, and executed in a Neo4j
+  read-access-mode transaction — a write that slips the text check is refused by the
+  database itself.
+- **Provenance:** when the answer traverses a fact edge, the prompt returns the edge's
+  `source_statement_id`, joined back to the `:Statement` node for a verbatim quote +
+  speaker (`kind="source"`); the fallback's quotes are `kind="related"`. (A statement-
+  returning Cypher query grounds via the statement ids in its rows rather than edge
+  provenance — both are honest grounding.)
+- **No-hallucination floor:** the semantic fallback declines (returns `found=False`) when
+  the best statement-cosine is below an empirically-tuned floor — the guarantee rests on
+  the score, not on the LLM noticing the quotes are irrelevant. On the real pms corpus,
+  answerable questions score 0.54–0.70 and off-topic ones 0.22–0.23; the floor is 0.40.
+  Verified: "What is the capital of France?" → "I couldn't find that in the conversation."
 
 ## Evaluation: accuracy vs noise — _(pending: Phase 4)_
 
@@ -118,8 +131,106 @@ Controlled-SNR harness with three curves: transcript-similarity (ceiling) → fa
 with a frontier oracle in the eval path only (never importable by the product path), then
 human-verified. Numbers go here once the harness runs.
 
+## Measured capability boundary (real 10-min multi-party Hinglish, local ~9B)
+
+The demo runs on **`pms.wav`** — a real ~10-minute, 4-speaker Hinglish conversation about
+PMS / AIF / mutual funds (not a scripted clip). Reported in full rather than hidden, because
+where the pipeline holds and where it breaks is the most instructive result.
+
+**What works — the audio spine.** Denoise → diarization → Hinglish→English ASR on the real
+conversation is solid: 74 utterances, **4 distinct speakers** (well-distributed), full
+600 s coverage, English output (0 Devanagari). A few dense code-mixed fragments stay
+romanized-Hindi (e.g. *"uska return zyada ho sakta hai na"*) — a known limit of the
+translate task on heavy code-mix — but the transcript is overwhelmingly coherent English.
+The graph backbone (`:Speaker`, `:Statement` nodes) is built deterministically from this
+transcript and is reliable: 4 clean speakers, 74 grounded statements.
+
+**What breaks — LLM fact extraction on real noisy code-mixed speech.** This is the
+bottleneck, and it is the **local ~9B model**, not the pipeline design. Three fixable
+*pipeline* bugs were found and fixed along the way (each independent of model size):
+1. **Decoding repetition loop.** On a dense chunk, greedy decoding + an unbounded `facts`
+   array made the model re-emit the same ~6–9 facts to ~9k tokens → truncated/invalid JSON
+   → whole chunk lost. Fixed with `maxItems` on the schema arrays (LM Studio enforces the
+   grammar close), a `max_tokens` safety bound, and smaller chunks so the model processes
+   each portion and closes the array naturally.
+2. **Speaker-node pollution.** Extraction was allowed to emit `Speaker`/`Statement`
+   entities (e.g. "Viraj", "Speaker_02"), which `graph.upsert` then wrote as duplicate
+   speaker nodes colliding with the clean diarization-derived ones. Fixed by restricting
+   extraction to content labels only.
+3. **Dropped value-objects.** The model writes a fact object as a raw value
+   (`object_id="50 lakh"`) without defining a matching entity, so the dangling-ref guard
+   dropped the fact and most real content with it. Fixed by promoting undefined value
+   endpoints to `Attribute` entities (skipping bare local ids like `e3`, which the model
+   declares but forgets to define — those carry no value and are left to be dropped).
+
+After those fixes the graph is substantive (~19 entities, ~21 facts, many correct: PMS →
+affluent HNI; PMS fee structures → performance/flat fee; PMS strategies; PMS vs mutual
+fund) — **but the residual quality is a hard model ceiling**: extraction is non-deterministic
+run-to-run despite `temperature=0`, recall is partial (the discursive/code-mixed middle of
+the conversation yields little), and some edges are simply wrong (`HAS_MINIMUM_CORPUS →
+"Affluent HNI Segment"`, occasional self-loops). Chasing this with more prompt tuning is
+fighting the ceiling, so we stopped and measured it instead.
+
+**Consequence for Q&A, and why the demo holds.** Single-hop Cypher answers correctly for the
+facts that are in the graph — "what fee structures does a PMS have?", "who is a PMS meant
+for?", "what strategy does a PMS follow?" all return `mode=cypher` with edge-level source
+provenance (verbatim quote + speaker). Getting there exposed a separate grounding bug worth
+recording: the text-to-Cypher prompt asserted that fact edges connect `:Entity {type:'X'}`
+nodes Entity→Entity, but on the real induced graph the concepts land as `:Attribute` nodes
+and edges are Attribute→Attribute — so the model faithfully wrote `:Entity` queries that
+matched nothing and *every* fact question fell back to semantic search even when the fact
+existed. The prompt was lying about the graph's own structure. Fixed by matching concepts
+**by name with no label** (labels are inconsistent across the messy induced graph). For
+questions whose fact didn't extract (or extracted wrong), the **statement-grounded semantic
+fallback** answers from real verbatim quotes with speaker attribution — a path that **does
+not depend on fact-extraction quality at all**, only on the reliable transcript. The
+no-hallucination floor holds (off-topic questions decline). So the user-facing Q&A degrades
+gracefully: Cypher-with-provenance where the fact exists, grounded-quote fallback where it
+doesn't, honest "not found" where the conversation doesn't cover it.
+
+**Provenance-quote precision is itself bounded by the extraction ceiling.** The Cypher path
+returns the edge's `source_statement_id` as the grounding quote — but because fact extraction
+on this messy clip sometimes attaches a fact to a related-but-not-cleanest statement, the
+surfaced quote occasionally supports the *topic* (PMS) rather than the *specific* claim. E.g.
+"what strategy does a PMS follow?" answers correctly from the graph but its `[source]` quote
+is the speaker's general PMS-vs-mutual-fund clarification rather than the exact strategy
+sentence. Same root cause as the extraction ceiling; named here so it doesn't surprise a
+reviewer. The fix is the same two-pass / verification path above (tie each fact to its
+tightest supporting statement).
+
+### Live demo sequence (golden path)
+
+Lead from strength, then introduce the boundary deliberately:
+1. **"What strategy does a PMS follow?"** → `mode=cypher` → *Broad Portfolio Strategy,
+   Concentrated Small Cap Strategy, Consistency of Alpha* — with `[source]` speaker quote.
+2. **"How does a PMS differ from a mutual fund?"** → `mode=semantic-fallback` → *"a PMS is
+   like surgery without anesthesia…"* — shows the statement-grounded path with `[related]`
+   quotes (and that the system labels source vs related honestly).
+3. **"Who is a PMS meant for?"** → `mode=cypher` → *Affluent HNI Segment* — with `[source]`
+   quote.
+
+Then, to show the honesty guarantees on purpose: **"What is the capital of France?"** →
+declines (`found=False`, "I couldn't find that in the conversation") — the cosine floor, not
+the LLM, refusing to fabricate. This sequence demonstrates both Q&A paths, real provenance,
+and the no-hallucination floor before the extraction-quality boundary is discussed.
+
+**Multi-hop** is not reliably achievable here, for two compounding reasons (both the model):
+text-to-Cypher does not reliably navigate 2-hop chains from the schema alone (an earlier
+test only passed because the answer was hardcoded into the prompt — that overfitting was
+caught and removed via the test *"would this prompt be equally correct for any other
+graph?"*), and the induced graph is too sparse/noisy to carry a verified multi-hop chain.
+Marked `xfail(strict=False)`.
+
+**How I'd cross the extraction/Q&A ceiling** (all model/architecture, not pipeline):
+a stronger or Cypher/extraction-tuned model (or a cloud model for the extraction stage
+specifically); **two-pass extraction with a verification pass** (extract, then ask the model
+to check each fact against its statement); an explicit **entity-linking** step (embed
+question spans and fact objects against entity-name embeddings, resolve to node ids) for
+both better resolution and multi-hop anchoring; and a better Hinglish translation front-end
+to recover the code-mixed segments the current ASR leaves romanized.
+
 ## What is stubbed / out of scope for v1
 
 Guaranteed accuracy under extreme/adversarial noise; streaming / large-scale ingestion;
 full ontology coverage; accuracy metrics at scale; auth / multi-tenancy. Architected for,
-not built.
+not built. Multi-hop Q&A on a local ~9B is a measured limitation (above), not stubbed.

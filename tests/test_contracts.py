@@ -35,3 +35,18 @@ def test_fact_carries_statement_id_default_and_roundtrip():
     f2 = Fact.model_validate_json(
         f.model_copy(update={"statement_id": "stmt:pms:3"}).model_dump_json())
     assert f2.statement_id == "stmt:pms:3"
+
+def test_qaresult_and_provenance_roundtrip_and_literals():
+    import pytest
+    from pydantic import ValidationError
+    from src.contracts import QAResult, Provenance
+    p = Provenance(statement_id="stmt:sample2:0", speaker="SPEAKER_00", text="...", kind="source")
+    r = QAResult(question="q", answer="a", mode="cypher", found=True,
+                 cypher="MATCH (n) RETURN n", provenance=[p], graph_node_ids=["entity:pms"], hops="multi")
+    r2 = QAResult.model_validate_json(r.model_dump_json())
+    assert r2.provenance[0].kind == "source" and r2.hops == "multi" and r2.found is True
+    assert QAResult(question="q", answer="a", mode="semantic-fallback", found=False).rows == []  # defaults
+    with pytest.raises(ValidationError):
+        Provenance(statement_id="x", speaker="s", text="t", kind="bogus")  # kind is a closed Literal
+    with pytest.raises(ValidationError):
+        QAResult(question="q", answer="a", mode="sql", found=True)         # mode is a closed Literal

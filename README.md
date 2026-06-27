@@ -77,14 +77,27 @@ main venv first: `source .venv/bin/activate`.
 
 ```bash
 # Phase 1 — audio -> speaker-attributed English transcript
-python -m src.enhance <clip>            # denoise  -> data/work/<clip>.clean.wav
-python -m src.diarize_asr <clip>        # diarize + translate -> data/work/<clip>.transcript.json
+python -m src.enhance pms               # denoise  -> data/work/pms.clean.wav
+python -m src.diarize_asr pms           # diarize + translate -> data/work/pms.transcript.json
 
 # Phase 2 — transcript -> knowledge graph (needs LM Studio + Neo4j running)
-python -m src.extract <clip>            # induce ontology + extract facts -> data/work/<clip>.facts.json
-python -m src.graph <clip>              # idempotent upsert into Neo4j
+python -m src.extract pms               # induce ontology + extract facts -> data/work/pms.facts.json
+python -m src.graph pms                 # idempotent upsert into Neo4j
+
+# Phase 3 — Ask Atyx (needs LM Studio + Neo4j running) — golden demo sequence
+python -m src.qa "What strategy does a PMS follow?"            # -> Cypher single-hop + [source] quote
+python -m src.qa "How does a PMS differ from a mutual fund?"   # -> statement-grounded fallback + [related]
+python -m src.qa "Who is a PMS meant for?"                     # -> Cypher single-hop + [source] quote
+python -m src.qa "What is the capital of France?"             # -> declines (no-hallucination floor)
 ```
 
-`<clip>` is a stem under `data/raw/` / `data/work/` (e.g. `sample2`). Re-running
+The demo clip is **`pms`** — a real ~10-minute, 4-speaker Hinglish conversation about
+PMS / AIF / mutual funds. `<clip>` is a stem under `data/raw/` / `data/work/`. Re-running
 `src.graph` is idempotent (MERGE on stable ids). Every fact edge stores a
 `source_statement_id` that traces back to the `:Statement` node it came from.
+
+> **On extraction quality:** the audio spine (denoise → diarize → English ASR) and the
+> statement-grounded Q&A are solid on the real conversation. LLM **fact extraction** on
+> real noisy code-mixed Hinglish is the measured bottleneck (a local ~9B ceiling, not the
+> pipeline) — see `design_note.md` § *Measured capability boundary* for the full evidence
+> and the fix path.

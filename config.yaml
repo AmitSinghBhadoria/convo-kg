@@ -8,7 +8,11 @@ paths:
   noisy: data/noisy
   ground_truth: data/ground_truth
 extract:
-  chunk_tokens: 1800
+  # 700 (was 1800): smaller chunks force the model to process each portion of a
+  # dense conversation and close the facts array naturally, avoiding the greedy
+  # repetition loop a large chunk triggers (it would fixate on early facts and
+  # duplicate them to the token cap). Pairs with EXTRACT_SCHEMA maxItems=15.
+  chunk_tokens: 700
   overlap_tokens: 200
   confidence_threshold: 0.6
 eval:

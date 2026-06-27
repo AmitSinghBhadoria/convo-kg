@@ -5,9 +5,14 @@ Imports: stdlib + src.* only. No torch.
 """
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import Any
+
+# A bare local entity-id the model uses in facts (e.g. "e3", "ent1", "c0") —
+# distinct from a real value string like "50 lakh" or "Affluent HNI".
+_LOCAL_ID_RE = re.compile(r"^[a-zA-Z]{1,4}\d+$")
 
 from src.contracts import Entity, Fact, FactSet, Transcript
 from src.chunking import Chunk, chunk_transcript
@@ -24,13 +29,27 @@ EXTRACT_SCHEMA: dict[str, Any] = {
     "properties": {
         "entities": {
             "type": "array",
+            # maxItems bounds the constrained-decoding grammar so the array is
+            # forced to close — prevents the greedy-decode repetition loop that
+            # otherwise lets a dense chunk emit the same objects unboundedly.
+            # 15 is generous headroom for one small (~700-token) chunk and is
+            # kept consistent with llm.max_tokens: at ~100 tokens per item, the
+            # closed array fits under the 2048 cap with margin, so the grammar
+            # closes the array naturally instead of the token cap truncating it.
+            "maxItems": 15,
             "items": {
                 "type": "object",
                 "properties": {
                     "id":    {"type": "string"},
                     "label": {
                         "type": "string",
-                        "enum": ["Speaker", "Statement", "Entity", "Claim", "Attribute"],
+                        # Extraction may ONLY emit content nodes. Speaker and
+                        # Statement are backbone nodes created from the transcript
+                        # by graph.upsert (clean, diarization-derived); letting the
+                        # LLM emit them spawns duplicate/garbage Speaker nodes
+                        # ("Viraj", "Speaker_02", "SPEAKER_02") that collide with
+                        # the real ones and corrupt speaker attribution.
+                        "enum": ["Entity", "Claim", "Attribute"],
                     },
                     "type": {"type": "string"},
                     "name": {"type": "string"},
@@ -41,6 +60,11 @@ EXTRACT_SCHEMA: dict[str, Any] = {
         },
         "facts": {
             "type": "array",
+            # See the entities note: bounds the array so the grammar closes it,
+            # kept consistent with llm.max_tokens (~100 tokens/fact -> 15 facts
+            # fit under the 2048 cap with margin). With small chunks the array
+            # closes naturally well below this; it is a backstop, not a target.
+            "maxItems": 15,
             "items": {
                 "type": "object",
                 "properties": {
@@ -91,7 +115,10 @@ def build_prompt(
         "Rules:\n"
         "1. Every fact MUST set `statement_id` to the bracketed tag of its source line "
         "(e.g. [stmt:clip:5] → statement_id is 'stmt:clip:5').\n"
-        "2. Use entity ids you define (short local identifiers, e.g. 'e1', 'e2').\n"
+        "2. Define an entity (with a short local id like 'e1', 'e2') for EVERY "
+        "thing a fact refers to — including values such as amounts ('50 lakh', "
+        "'1 crore'), fee types, and named concepts — and use those ids (never "
+        "raw text) as subject_id and object_id.\n"
         "3. Only extract facts that are EXPLICITLY stated in the conversation.\n"
         "4. Assign `confidence` in [0, 1] for each fact.\n"
         "5. NEVER extract from or cite lines marked "
@@ -120,6 +147,35 @@ def build_prompt(
 # ---------------------------------------------------------------------------
 # namespace — pure
 # ---------------------------------------------------------------------------
+
+def promote_undefined_endpoints(
+    entities: list[Entity], facts: list[Fact]
+) -> list[Entity]:
+    """Promote any fact endpoint that isn't a defined entity into an Attribute.
+
+    The local model frequently writes a value directly as ``object_id`` (e.g.
+    ``object_id="50 lakhs"``) without defining a matching entity. Without this,
+    ``consolidate``'s dangling-reference guard drops the fact and the value is
+    lost — which is most of the real content (amounts, fee types, demographics).
+    Promoting each undefined endpoint to an ``Attribute`` entity (id=name=value)
+    keeps the fact; the resolver then slugifies and dedups it normally.
+    """
+    seen = {e.id for e in entities}
+    promoted = list(entities)
+    for f in facts:
+        for ref in (f.subject_id, f.object_id):
+            if not ref or ref in seen:
+                continue
+            # Only promote real value strings. A bare local-id pattern (e3, ent1)
+            # means the model declared an entity id but forgot to define it — its
+            # value is unknown, so promoting it would create a garbage node named
+            # "e3". Leave those to be dropped by consolidate's dangling-ref guard.
+            if _LOCAL_ID_RE.match(ref):
+                continue
+            seen.add(ref)
+            promoted.append(Entity(id=ref, label="Attribute", type="Value", name=ref))
+    return promoted
+
 
 def namespace(
     entities: list[Entity],
@@ -165,6 +221,8 @@ def _extract_chunk(
         print(f"[extract] chunk {chunk.index} error: {exc}", file=sys.stderr)
         return [], []
 
+    # Recover value-objects the model referenced but didn't define as entities.
+    entities = promote_undefined_endpoints(entities, facts)
     return namespace(entities, facts, chunk.index)
 
 
@@ -181,6 +239,11 @@ def consolidate(
     clip: str,
 ) -> FactSet:
     """Merge entities, filter + dedup facts, return a grounded FactSet."""
+    # Defensive backstop to the schema enum: extraction must never create
+    # backbone nodes. Drop any Speaker/Statement-labeled entity so a stray one
+    # cannot pollute the graph's diarization-derived Speaker/Statement nodes.
+    # Facts referencing a dropped entity fall away via the dangling-ref guard.
+    raw_entities = [e for e in raw_entities if e.label not in ("Speaker", "Statement")]
     reps, id_map = resolver.resolve(raw_entities)
     rep_ids = {e.id for e in reps}
 
