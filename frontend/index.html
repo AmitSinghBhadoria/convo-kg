@@ -25,9 +25,6 @@
 </template>
 <x-dc>
 <helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 @keyframes atyxpulse { 0%,100%{ box-shadow:0 0 0 0 rgba(200,162,78,0.55);} 60%{ box-shadow:0 0 0 6px rgba(200,162,78,0);} }
 @keyframes atyxblink { 0%,100%{ opacity:1;} 50%{ opacity:0.25;} }
@@ -187,7 +184,7 @@ button { font:inherit; }
             <div style="align-self:flex-end; max-width:84%; padding:10px 14px; background:#1c1b21; border:1px solid #2b2a31; border-radius:13px 13px 4px 13px; font-size:13px; line-height:1.5; color:#e6e1d8; animation:atyxfade .35s ease both;">{{ m.text }}</div>
           </sc-if>
           <sc-if value="{{ m.isBot }}" hint-placeholder-val="{{ false }}">
-            <div style="align-self:flex-start; max-width:96%; display:flex; flex-direction:column; gap:9px; animation:atyxfade .45s ease both;">
+            <div style="align-self:flex-start; max-width:98%; display:flex; flex-direction:column; gap:9px; animation:atyxfade .45s ease both;">
               <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:31px; font-weight:600; color:#C8A24E; line-height:1.08; letter-spacing:0.01em;">{{ m.main }}</div>
               <div style="font-size:12.5px; color:#8A8579; line-height:1.6;">{{ m.tail }}</div>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:1px;">
@@ -272,12 +269,12 @@ class Component extends DCLogic {
   state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false };
 
   transcript = [
-    { sp:'S1', t:'0:08', text:'For PMS, the minimum ticket size is fifty lakhs — SEBI mandated.' },
+    { sp:'S1', t:'0:08', text:'For PMS, the minimum ticket size is fifty lakhs — as SEBI requires.' },
     { sp:'S2', t:'0:21', text:'And AIF, the minimum investment is one crore, correct?' },
     { sp:'S1', t:'0:34', text:'Haan. AIF Category III needs one crore minimum.' },
     { sp:'S2', t:'0:47', text:'Mutual funds ka kya scene? Client wants to start chhota.' },
     { sp:'S1', t:'1:02', text:'Mutual funds have no minimum — SIP can start at five hundred rupees.' },
-    { sp:'S1', t:'1:18', text:'For a two-crore portfolio I would suggest sixty percent PMS, forty AIF.' },
+    { sp:'S1', t:'1:18', text:'For a two-crore portfolio I would suggest sixty percent in PMS, forty in AIF.' },
     { sp:'S2', t:'1:35', text:'Theek hai — let us finalise the PMS provider by Friday.' },
   ];
 
@@ -293,9 +290,9 @@ class Component extends DCLogic {
   graphEdges = [];
 
   presets = [
-    { id:'pms', q:'What is the minimum investment for PMS?', main:'₹50 lakh', tail:'SEBI-mandated minimum ticket size for a Portfolio Management Service.', nodeIds:['pms','n50'], srcLine:0, source:'S1 · 0:08', cypher:"MATCH (e:Entity {name:'PMS'})\n      -[:HAS_MIN]->(v:Amount)\nRETURN v.display" },
-    { id:'aif', q:'And the minimum for AIF?', main:'₹1 crore', tail:'Category III Alternative Investment Fund minimum commitment.', nodeIds:['aif','n1cr'], srcLine:2, source:'S1 · 0:34', cypher:"MATCH (e:Entity {name:'AIF'})\n      -[:HAS_MIN]->(v:Amount)\nRETURN v.display" },
-    { id:'mf', q:'Which product has no minimum?', main:'Mutual funds', tail:'No floor — SIPs can start at just ₹500 per month.', nodeIds:['mf','n500'], srcLine:4, source:'S1 · 1:02', cypher:"MATCH (e:Entity)-[:MIN_SIP]->(v:Amount)\nRETURN e.name, v.display" },
+    { id:'pms', q:'What is the minimum investment for PMS?' },
+    { id:'aif', q:'And the minimum for AIF?' },
+    { id:'mf', q:'Which product has no minimum?' },
   ];
 
   chart = null;
