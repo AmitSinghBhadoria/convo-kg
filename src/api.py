@@ -4,6 +4,7 @@ frontend/. The pre-built graph stays authoritative; clip-specificity is config o
 """
 import json
 import os
+import re
 import uuid
 from pathlib import Path
 
@@ -32,15 +33,29 @@ _CLIP_MODE: dict[str, str] = {}            # uploaded clip_id → mode (e.g. "li
 _LIVE_RUNNING: bool = False                # guard: only one live run at a time
 
 
+# clip ids reach the filesystem (data/raw/<id>.wav, data/work/<id>.*), so they
+# are validated here at the single chokepoint both /api/select_clip and /api/run
+# pass through. The general allowlist excludes "." and "/", blocking traversal;
+# the upload pattern matches only server-issued ids ("upload_" + uuid4().hex[:10]).
+_CLIP_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_UPLOAD_ID_RE = re.compile(r"^upload_[0-9a-f]{10}$")
+
+
 def _clip_mode(clip_id: str) -> str:
     """Return the mode string for a clip id.
 
     Lookup order:
+    0. Format validation — reject ids outside a strict allowlist (path-traversal
+       guard), and ids that spoof the "upload_" prefix without the issued shape.
     1. Registry (CFG.demo.clips) — authoritative for pre-built clips.
     2. _CLIP_MODE dict — for uploaded clips whose mode was recorded on select.
     3. Prefix heuristic — any clip_id starting with "upload_" defaults to "live".
     4. 404 — unknown clip.
     """
+    if not _CLIP_ID_RE.fullmatch(clip_id):
+        raise HTTPException(status_code=400, detail="invalid clip id")
+    if clip_id.startswith("upload_") and not _UPLOAD_ID_RE.fullmatch(clip_id):
+        raise HTTPException(status_code=400, detail="invalid upload id")
     for c in CFG.demo.clips:
         if c.id == clip_id:
             return c.mode

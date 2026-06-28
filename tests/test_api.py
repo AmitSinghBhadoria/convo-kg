@@ -86,12 +86,19 @@ def test_clips_lists_registry():
 def test_select_facts_clip_no_neo4j_write(monkeypatch):
     # selecting a non-graph clip must not call connect()/restore
     monkeypatch.setattr(api, "connect", lambda *a, **k: (_ for _ in ()).throw(AssertionError("neo4j touched")))
-    r = client.post("/api/select_clip", json={"id": "upload_abc"})
+    r = client.post("/api/select_clip", json={"id": "upload_0123456789"})
     assert r.status_code == 200 and r.json()["mode"] == "live"
 
+def test_select_clip_rejects_invalid_ids():
+    # path-traversal and spoofed upload ids never reach the filesystem
+    for bad in ("upload_../../etc/passwd", "../../etc/passwd",
+                "pms/../call_100", "upload_xx", "a" * 65):
+        r = client.post("/api/select_clip", json={"id": bad})
+        assert r.status_code == 400, bad
+
 def test_run_live_mode_drives_orchestrator(monkeypatch):
-    monkeypatch.setattr(api, "_ACTIVE_CLIP", "upload_abc")
-    monkeypatch.setattr(api, "_CLIP_MODE", {"upload_abc": "live"})
+    monkeypatch.setattr(api, "_ACTIVE_CLIP", "upload_0123456789")
+    monkeypatch.setattr(api, "_CLIP_MODE", {"upload_0123456789": "live"})
     def fake_live(clip):
         yield {"event": "stage", "data": {"index": 0, "label": "Speech enhancement", "sub": "x", "status": "active"}}
         yield {"event": "done", "data": {"clip": clip}}
