@@ -76,6 +76,12 @@ def test_run_stream_emits_stage_and_done():
 
 # ── Task 4: clips / select_clip / live-mode dispatch ────────────────────────
 
+def test_default_clip_is_verified_graph_hero():
+    # the demo must open on the verified PMS hero (graph mode) on a fresh start,
+    # never a facts clip. _ACTIVE_CLIP initializes from CFG.demo.clip.
+    assert api.CFG.demo.clip == "pms"
+    assert api._clip_mode("pms") == "graph"
+
 def test_clips_lists_registry():
     r = client.get("/api/clips")
     assert r.status_code == 200
