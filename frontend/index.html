@@ -67,13 +67,24 @@ button { font:inherit; }
     <div style="border-right:1px solid #232228; padding:22px 20px; display:flex; flex-direction:column; gap:22px; overflow-y:auto;">
       <div>
         <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579; margin-bottom:10px;">Clip</div>
-        <div style="display:flex; flex-direction:column; gap:5px;">
-          <sc-for list="{{ clipRows }}" as="cr" hint-placeholder-count="3">
-            <div onClick="{{ cr.onClick }}" style="{{ cr.rowStyle }}">
-              <div style="font-size:13px; color:{{ cr.labelColor }}; font-weight:500;">{{ cr.label }}</div>
-              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; margin-top:2px; letter-spacing:0.04em;">{{ cr.domain }}</div>
+        <div style="position:relative;">
+          <div onClick="{{ togglePicker }}" style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:#141318; border:1px solid #2c2a33; border-radius:9px; cursor:pointer;">
+            <div>
+              <div style="font-size:13px; color:#ECE8E1; font-weight:500;">{{ activeClipLabel }}</div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; margin-top:2px; letter-spacing:0.04em;">{{ activeClipDomain }}</div>
             </div>
-          </sc-for>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#8A8579; margin-left:10px;">{{ pickerCaret }}</span>
+          </div>
+          <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:5px; margin-top:5px;">
+              <sc-for list="{{ clipRows }}" as="cr" hint-placeholder-count="3">
+                <div onClick="{{ cr.onClick }}" style="{{ cr.rowStyle }}">
+                  <div style="font-size:13px; color:{{ cr.labelColor }}; font-weight:500;">{{ cr.label }}</div>
+                  <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; margin-top:2px; letter-spacing:0.04em;">{{ cr.domain }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
         </div>
       </div>
 
@@ -102,7 +113,7 @@ button { font:inherit; }
 
       <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ false }}">
         <div>
-          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#8a7330; letter-spacing:0.05em; margin-bottom:6px;">automatic extraction — unverified; Q&amp;A queries the verified pre-built graph</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#8a7330; letter-spacing:0.05em; margin-bottom:6px;">automatic extraction — unverified · this clip has no graph or Q&amp;A</div>
           <div style="max-height:100px; overflow-y:auto; display:flex; flex-direction:column;">
             <sc-for list="{{ liveFacts }}" as="f" hint-placeholder-count="0">
               <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; line-height:1.4; padding:3px 0; border-bottom:1px solid #1e1d24;">{{ f }}</div>
@@ -306,7 +317,7 @@ button { font:inherit; }
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false, streamLines:[], liveFacts:[], gsel:null, clipMode:'graph' };
+  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false, streamLines:[], liveFacts:[], gsel:null, clipMode:'graph', pickerOpen:false };
 
   transcript = [];
 
@@ -449,6 +460,8 @@ class Component extends DCLogic {
     this.setState(st => ({ messages: st.messages.map((m, j) => j===i ? { ...m, cypherOpen:!m.cypherOpen } : m) }));
   };
 
+  togglePicker = () => this.setState(st => ({ pickerOpen: !st.pickerOpen }));
+
   selectClip = async (id) => {
     try {
       const res = await fetch('/api/select_clip', {
@@ -463,7 +476,7 @@ class Component extends DCLogic {
       this.clips = this.clips.map(c => ({ ...c, active: c.id === id }));
       // Reset all transient view state
       this.setState({
-        clipMode: mode,
+        clipMode: mode, pickerOpen: false,
         messages: [], run: 'idle', liveFacts: [], streamLines: [], step: -1, gsel: null, tlines: 0,
       });
       // For graph-mode clips, reload the graph snapshot; facts/live clips skip Neo4j
@@ -651,6 +664,7 @@ class Component extends DCLogic {
       rowStyle: `display:flex; flex-direction:column; padding:9px 12px; background:#141318; border:1px solid ${c.active ? '#C8A24E' : '#232228'}; border-radius:9px; cursor:pointer; transition:border-color .2s ease;`,
       labelColor: c.active ? '#ECE8E1' : '#8A8579',
     }));
+    const activeClip = this.clips.find(c => c.active) || this.clips[0] || {};
 
     return {
       isConsole: st.screen==='console',
@@ -664,6 +678,11 @@ class Component extends DCLogic {
       gridCols: isGraphMode ? '264px 1fr 372px' : '264px 1fr',
 
       clipRows,
+      togglePicker: this.togglePicker,
+      pickerOpen: st.pickerOpen,
+      pickerCaret: st.pickerOpen ? '▴' : '▾',
+      activeClipLabel: activeClip.label || '—',
+      activeClipDomain: activeClip.domain || activeClip.mode || '',
       steps,
       onRun: this.startRun,
       onUpload: this.onUpload,
