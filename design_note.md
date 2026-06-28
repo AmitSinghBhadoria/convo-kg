@@ -124,6 +124,27 @@ answer grounded in the returned rows, with a semantic fallback over statement em
   answerable questions score 0.54–0.70 and off-topic ones 0.22–0.23; the floor is 0.40.
   Verified: "What is the capital of France?" → "I couldn't find that in the conversation."
 
+### Scaling — semantic caching (deliberately out of v1)
+
+At scale, an obvious latency/cost lever is **semantic caching**: embed the question and
+serve a prior answer on a near-enough cosine match. I'm leaving it out, and the reason is
+the same false-positive risk this system manages elsewhere. Near-duplicate questions
+routinely have *different* correct answers — *"minimum for PMS?"* vs *"…for AIF?"*, *"who
+books the hotel?"* vs *"…transport?"* — yet sit close in embedding space, so a threshold
+cache would confidently serve the wrong one. Caching here corrupts the **answer**, not
+just a retrieval candidate (the cosine-floor problem above, but with a worse blast
+radius), and for this domain a fast wrong answer is strictly worse than a slow correct one.
+
+The scaling path, when it's warranted:
+- **Cache the query plan, not the answer** — `question → Cypher`, then *re-execute*
+  against the live graph. The structured query is more stable and verifiable, the graph
+  stays authoritative, and a changed graph can't be served stale.
+- **Exact / normalized-string cache underneath** — free and safe; catches literal repeats
+  with no similarity risk.
+- **If answers are ever cached**, treat a hit as a *candidate*, not an oracle: high
+  similarity threshold, a TTL, and re-verify the supporting graph rows (the provenance ids
+  above) still hold before returning.
+
 ## Phase 4 — Controlled-SNR results
 
 **Setup.** A 160 s **2-speaker conversational slice** of the real PMS clip, mixed with
