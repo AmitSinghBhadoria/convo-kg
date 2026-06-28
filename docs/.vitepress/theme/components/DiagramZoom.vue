@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
 // ── Overlay state ────────────────────────────────────────────────────────────
 const open = ref(false)
-const svgHtml = ref('')
 const scale = ref(1)
 const translateX = ref(0)
 const translateY = ref(0)
 const isDragging = ref(false)
 const justDragged = ref(false)
+const stageEl = ref<HTMLElement | null>(null)
 
 let dragStartX = 0
 let dragStartY = 0
@@ -32,19 +32,54 @@ const transform = computed(
 )
 
 // ── Open / close ─────────────────────────────────────────────────────────────
+// Clone the rendered SVG and give it EXPLICIT pixel dimensions derived from the
+// original's on-screen aspect ratio. Relying on CSS height:auto for an inline
+// SVG is unreliable (it can collapse to height 0), so we size it ourselves.
+function mountClone(svg: SVGElement) {
+  const host = stageEl.value
+  if (!host) return
+  host.innerHTML = ''
+  const rect = svg.getBoundingClientRect()
+  let ratio = rect.width > 0 ? rect.height / rect.width : 0
+  if (!ratio || !isFinite(ratio)) {
+    const vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number)
+    ratio = vb.length === 4 && vb[2] ? vb[3] / vb[2] : 0.6
+  }
+  const maxW = window.innerWidth * 0.92
+  const maxH = window.innerHeight * 0.82
+  let w = maxW
+  let h = w * ratio
+  if (h > maxH) {
+    h = maxH
+    w = ratio ? h / ratio : maxW
+  }
+  const clone = svg.cloneNode(true) as SVGElement
+  // Strip the Mermaid identity (id + class) so Mermaid's post-render pass can't
+  // re-find this clone and overwrite our sizing with its own max-width style.
+  clone.removeAttribute('id')
+  clone.removeAttribute('class')
+  clone.removeAttribute('width')
+  clone.removeAttribute('height')
+  clone.setAttribute(
+    'style',
+    `width:${Math.round(w)}px;height:${Math.round(h)}px;max-width:none;max-height:none;display:block;`,
+  )
+  host.appendChild(clone)
+}
+
 function openOverlay(svg: SVGElement) {
-  svgHtml.value = svg.outerHTML
   scale.value = 1
   translateX.value = 0
   translateY.value = 0
   open.value = true
   document.documentElement.style.overflow = 'hidden'
   window.addEventListener('keydown', onKeydown)
+  nextTick(() => mountClone(svg))
 }
 
 function close() {
   open.value = false
-  svgHtml.value = ''
+  if (stageEl.value) stageEl.value.innerHTML = ''
   document.documentElement.style.overflow = ''
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('mousemove', onDragMove)
@@ -55,7 +90,6 @@ function close() {
 
 // ── Zoom ─────────────────────────────────────────────────────────────────────
 function clampPanToZoom() {
-  // Panning only makes sense above 100%; snap back to centre at/below 100%.
   if (scale.value <= 1) {
     translateX.value = 0
     translateY.value = 0
@@ -166,7 +200,6 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-// Click on the dark backdrop closes — unless we just finished dragging.
 function onBackdropClick() {
   if (isDragging.value || justDragged.value) return
   close()
@@ -232,7 +265,7 @@ onBeforeUnmount(() => {
         @touchstart="onTouchStart"
         @click.self="onBackdropClick"
       >
-        <div class="diagram-zoom-content" :style="{ transform }" v-html="svgHtml" />
+        <div class="diagram-zoom-content" ref="stageEl" :style="{ transform }" />
       </div>
 
       <div class="diagram-zoom-hint">

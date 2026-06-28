@@ -83,19 +83,14 @@
   transform-origin: center center;
   transition: transform 0.05s linear;
   will-change: transform;
-  max-width: 92vw;
-  max-height: 82vh;
   pointer-events: none; /* so drags hit the stage, not the SVG internals */
 }
 
+/* The cloned SVG is given explicit pixel width/height in JS (DiagramZoom.vue),
+   computed from the source diagram's aspect ratio — do not constrain it here or
+   the inline sizing fights the CSS and the diagram can collapse to height 0. */
 .diagram-zoom-content svg {
   display: block;
-  /* Mermaid SVGs carry a viewBox but no width/height attrs — give them an
-     explicit width so the browser derives height from the aspect ratio
-     (width:auto would collapse them to height 0). */
-  width: min(90vw, 1400px) !important;
-  height: auto !important;
-  max-height: 82vh;
 }
 
 /* Toolbar */
@@ -176,14 +171,6 @@
     height: 34px;
     padding: 0 8px;
     font-size: 16px;
-  }
-  .diagram-zoom-content {
-    max-width: 98vw;
-    max-height: 78vh;
-  }
-  .diagram-zoom-content svg {
-    max-width: 98vw;
-    max-height: 78vh;
   }
   .diagram-zoom-hint {
     font-size: 10px;
