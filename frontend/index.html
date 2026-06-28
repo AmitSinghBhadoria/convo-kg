@@ -130,7 +130,7 @@ button { font:inherit; }
         <label style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; cursor:pointer;">
           <div style="width:54px; height:54px; border:1px solid #2b2a31; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#3a3942; font-size:20px; margin-bottom:6px;">↑</div>
           <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:34px; font-weight:500; color:#ECE8E1; letter-spacing:0.01em;">Upload a conversation to begin.</div>
-          <div style="font-size:13px; color:#5b5750;">click to select an audio file · or use <span style="color:#C8A24E;">Run live</span> to replay the sample clip</div>
+          <div style="font-size:13px; color:#5b5750;">click to select an audio file · or use <span style="color:#C8A24E;">Run replay</span> to load the selected clip</div>
           <input type="file" accept="audio/*" onChange="{{ onUpload }}" style="display:none;" />
         </label>
       </sc-if>
@@ -697,7 +697,7 @@ class Component extends DCLogic {
       onRun: this.startRun,
       onUpload: this.onUpload,
       runDisabled: st.run==='running',
-      runLabel: st.run==='idle' ? '▶   Run live' : st.run==='running' ? 'Running…' : '↻   Replay run',
+      runLabel: st.run==='running' ? 'Running…' : st.run==='done' ? '↻   Replay run' : (clipMode==='live' ? '▶   Run live' : '▶   Run replay'),
       runStyle:`width:100%; padding:14px; border-radius:11px; border:none; background:${st.run==='running'?'#8a7330':'#C8A24E'}; color:#0A0A0C; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; letter-spacing:0.01em; cursor:${st.run==='running'?'default':'pointer'}; transition:all .3s ease;`,
 
       showEmpty: st.run==='idle',
