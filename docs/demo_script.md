@@ -8,9 +8,10 @@
 **Two things to decide before you start:**
 1. **Length** — the full arc below runs ~12 min. To do ~6 min, keep Act I + Act III
    and cut Act II (live upload).
-2. **Live upload (Act II)** — it's the headline but the most fragile piece (cold model
-   loads, memory, minutes-long). Only run it live if the `start.sh` preflight was clean
-   and you have memory headroom. The replay clips in Act III are the reliable fallback.
+2. **Live upload (Act II)** — the plan is to let **Debopam upload his own clip** if he asks.
+   It's the headline but the most fragile piece (cold loads, memory, **minutes-long** —
+   ~14 min for a ~4-min clip in testing). Run it only if the preflight was clean, and
+   **steer him to a short clip**. Act III replay clips are the reliable fallback.
 
 ---
 
@@ -26,9 +27,13 @@
 - [ ] **Start the app** — `./start.sh`. Confirm the three green lines:
       `ok Neo4j reachable`, `ok LM Studio reachable`, `ok graph present (N nodes)`.
       Browser opens at **http://localhost:8000**.
-- [ ] **Live-upload clip ready** — a short conversational clip **trimmed to ~60–90 s**
-      (hard cap is 10 min, but 60–90 s processes in a watchable window). Have it on the
-      Desktop. Skip if you're cutting Act II.
+- [ ] **Live upload = his file.** The plan is to let **Debopam upload his own clip** — the
+      real generality test. Steer him on two things: **keep it short** (≤ ~2 min is
+      watchable; the app hard-caps at **10 min**) and ideally **clean, multi-speaker audio**
+      (it diarizes and extracts far better than narrowband phone audio). Timing is real —
+      cold model loads + processing ran **~14 min for a 3.9-min clip** in testing, and scales
+      with length — so a short clip matters. **Fallback** if he brings nothing:
+      `~/Desktop/atyx_live_demo.mp3` (the full call_112, ~3.9 min) is staged.
 - [ ] One browser tab, sensible zoom. The app opens on **PMS-advisory.wav** (the hero).
 
 > If `./start.sh` says the graph is empty: `./start.sh --restore` (reloads the verified
@@ -75,23 +80,33 @@
 
 ---
 
-## 3. Act II — Generality, live · ~3–4 min · OPTIONAL / RISKY
+## 3. Act II — Generality, live · OPTIONAL / RISKY
 
-*The breadth story: prove it works on arbitrary audio, end-to-end, in real time.*
+*The breadth story: prove it works on **arbitrary** audio, end-to-end, in real time —
+ideally a clip **he** brings.*
 
-> **Decision point:** only run this if the preflight was clean and memory is free.
+> **Decision point:** only if the preflight was clean and memory is free. **Set the time
+> expectation out loud before you start** (step 2).
 
-1. Click the centre **"Upload a conversation to begin"** → pick your trimmed clip.
-2. The **real pipeline** runs: denoise → diarize → ASR → extract, with **streamed
-   per-stage progress**. The transcript appears when ASR finishes; facts appear as
-   extraction completes.
-3. **Frame it honestly:** *"This is **facts mode** — automatic extraction, **unverified**,
-   shown as-is. Uploaded clips get **no graph and no Q&A** — that's a deliberate
-   boundary: Neo4j Community is single-database, so isolating a per-upload graph would
-   mean namespacing the verified hero's query path. Documented, deferred."*
-4. **If it's slow or fails:** the error is **per-stage and honest** — show it
-   (*"that's the failure contract working — it tells you which stage broke, it doesn't
-   hang or fake success"*), then pivot straight to Act III.
+1. **Hand it to him.** *"Upload anything you like — it runs the full pipeline live."*
+   Click **"Upload a conversation to begin"** → choose his file. (Fallback if he has none:
+   the staged `~/Desktop/atyx_live_demo.mp3`.)
+2. **Set expectations first.** It runs the **real models with cold loads** — in testing a
+   3.9-min clip took **~14 min**, and time scales with length (a 10-min clip can be
+   20–25 min). So say it plainly and **steer him short:** *"a clip of a minute or two
+   finishes while we keep talking."*
+3. The **real pipeline** runs: denoise → diarize → ASR → extract, **streamed per-stage**.
+   The transcript appears when ASR finishes; facts as extraction completes. Narrate:
+   *"it's processing audio it has never seen, on-device, right now."*
+4. **Frame it honestly:** *"**facts mode** — automatic extraction, **unverified**, shown
+   as-is. Uploaded clips get **no graph or Q&A** — Neo4j Community is single-DB, so
+   isolating a per-upload graph means namespacing the verified hero's query path.
+   Documented, deferred."* If it's **clean multi-speaker** audio you'll see real
+   diarization and richer facts; if it's **phone-quality**, expect **one speaker and sparse
+   facts** — the documented ceiling, named not hidden.
+5. **If it's slow or fails:** the error is **per-stage and honest** — show it
+   (*"that's the failure contract: it tells you which stage broke — no hang, no fake
+   success"*), then pivot straight to Act III.
 
 ---
 
