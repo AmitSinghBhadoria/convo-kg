@@ -36,6 +36,8 @@ jobs:
           cache: npm
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true # self-enable Pages so the run doesn't depend on the UI toggle
       - name: Install dependencies
         run: npm ci
       - name: Build VitePress site
