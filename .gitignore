@@ -121,3 +121,8 @@ dmypy.json
 # --- Session scratch (browser/agent tool dirs) ---
 .playwright-mcp/
 .serena/
+
+# --- Node / VitePress docs site ---
+node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
