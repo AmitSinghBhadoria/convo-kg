@@ -32,9 +32,22 @@ const transform = computed(
 )
 
 // ── Open / close ─────────────────────────────────────────────────────────────
-// Clone the rendered SVG and give it EXPLICIT pixel dimensions derived from the
-// original's on-screen aspect ratio. Relying on CSS height:auto for an inline
-// SVG is unreliable (it can collapse to height 0), so we size it ourselves.
+// Clone the rendered SVG and size it to fit the viewport, preserving aspect.
+//
+// Three things make this fiddly, each handled below:
+//   1. The clone shares every id with the in-page original. SVG `clip-path` and
+//      `marker` references (`url(#id)`) then resolve to the ORIGINAL's elements,
+//      which mis-clips the clone and ghosts the diagram. Fix: namespace the
+//      clone's ids. Mermaid prefixes every internal id with the root diagram id,
+//      so one string-replace rewrites ids, `url(#…)` refs, and the scoped
+//      `<style>` together. This also means Mermaid's post-render pass can no
+//      longer match the clone (so it won't wipe our sizing) and the internal
+//      edge/border styles still apply (they're now scoped to the new id).
+//   2. Mermaid writes a `max-width` onto the SVG's style; clear it so the SVG
+//      can fill our wrapper.
+//   3. Put the fit-size on a WRAPPER div and let the SVG fill it at 100% with a
+//      preserved aspect ratio.
+let cloneSeq = 0
 function mountClone(svg: SVGElement) {
   const host = stageEl.value
   if (!host) return
@@ -53,18 +66,34 @@ function mountClone(svg: SVGElement) {
     h = maxH
     w = ratio ? h / ratio : maxW
   }
-  const clone = svg.cloneNode(true) as SVGElement
-  // Strip the Mermaid identity (id + class) so Mermaid's post-render pass can't
-  // re-find this clone and overwrite our sizing with its own max-width style.
-  clone.removeAttribute('id')
-  clone.removeAttribute('class')
-  clone.removeAttribute('width')
-  clone.removeAttribute('height')
-  clone.setAttribute(
-    'style',
-    `width:${Math.round(w)}px;height:${Math.round(h)}px;max-width:none;max-height:none;display:block;`,
-  )
-  host.appendChild(clone)
+
+  // Build a clone with namespaced ids (see note above); fall back to a plain
+  // deep clone if serialization/parsing fails for any reason.
+  let clone: SVGElement
+  const rootId = svg.getAttribute('id')
+  try {
+    let markup = new XMLSerializer().serializeToString(svg)
+    if (rootId) markup = markup.split(rootId).join(`${rootId}-dz${cloneSeq++}`)
+    const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml')
+    if (parsed.querySelector('parsererror') || !parsed.documentElement) {
+      throw new Error('svg parse failed')
+    }
+    clone = document.importNode(parsed.documentElement, true) as unknown as SVGElement
+  } catch {
+    clone = svg.cloneNode(true) as SVGElement
+  }
+  clone.setAttribute('width', '100%')
+  clone.setAttribute('height', '100%')
+  clone.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+  clone.style.maxWidth = 'none'
+  clone.style.maxHeight = 'none'
+
+  const wrap = document.createElement('div')
+  wrap.style.cssText =
+    `width:${Math.round(w)}px;height:${Math.round(h)}px;` +
+    'display:flex;align-items:center;justify-content:center;'
+  wrap.appendChild(clone)
+  host.appendChild(wrap)
 }
 
 function openOverlay(svg: SVGElement) {
