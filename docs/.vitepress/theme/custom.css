@@ -1,0 +1,191 @@
+/* ============================================================================
+   Atyx Convo-KG docs — brand theme + full-width diagrams + zoom/pan overlay
+   Brand: gold accent #C8A24E on a dark canvas (from frontend/index.html).
+   ============================================================================ */
+
+:root {
+  --vp-c-brand-1: #b88a2e;
+  --vp-c-brand-2: #C8A24E;
+  --vp-c-brand-3: #C8A24E;
+  --vp-c-brand-soft: rgba(200, 162, 78, 0.16);
+  --atyx-gold: #C8A24E;
+}
+
+.dark {
+  --vp-c-brand-1: #C8A24E;
+  --vp-c-brand-2: #d6b566;
+  --vp-c-brand-3: #C8A24E;
+  --vp-c-bg: #0A0A0C;
+  --vp-c-bg-alt: #141318;
+  --vp-c-bg-soft: #1c1b21;
+}
+
+/* Home hero accent */
+.dark .VPHero .name,
+.dark .VPHero .text {
+  background: -webkit-linear-gradient(120deg, #C8A24E 30%, #e7cf8f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Diagrams: fill the content column (spec-required rules) ───────────────── */
+.vp-doc .mermaid,
+.vp-doc .mermaid-diagram {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin: 22px 0;
+}
+
+.vp-doc .mermaid svg,
+.vp-doc .mermaid-diagram svg {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100%;
+}
+
+/* Clickable affordance once the zoom layer has wired a diagram up */
+.vp-doc .mermaid.zoom-enabled,
+.vp-doc .mermaid-diagram.zoom-enabled {
+  cursor: zoom-in !important;
+  border-radius: 10px;
+  transition: box-shadow 0.2s ease;
+}
+
+.vp-doc .mermaid.zoom-enabled:hover,
+.vp-doc .mermaid-diagram.zoom-enabled:hover {
+  box-shadow: 0 0 0 1px rgba(200, 162, 78, 0.4);
+}
+
+/* ── Fullscreen zoom/pan overlay ──────────────────────────────────────────── */
+.diagram-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 8, 11, 0.94);
+  backdrop-filter: blur(2px);
+}
+
+.diagram-zoom-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+}
+
+.diagram-zoom-content {
+  transform-origin: center center;
+  transition: transform 0.05s linear;
+  will-change: transform;
+  max-width: 92vw;
+  max-height: 82vh;
+  pointer-events: none; /* so drags hit the stage, not the SVG internals */
+}
+
+.diagram-zoom-content svg {
+  display: block;
+  /* Mermaid SVGs carry a viewBox but no width/height attrs — give them an
+     explicit width so the browser derives height from the aspect ratio
+     (width:auto would collapse them to height 0). */
+  width: min(90vw, 1400px) !important;
+  height: auto !important;
+  max-height: 82vh;
+}
+
+/* Toolbar */
+.diagram-zoom-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(20, 19, 24, 0.9);
+  border-bottom: 1px solid #232228;
+}
+
+.dz-btn {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #3a3942;
+  border-radius: 9px;
+  background: #1c1b21;
+  color: #ECE8E1;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dz-btn:hover {
+  border-color: var(--atyx-gold);
+  color: var(--atyx-gold);
+}
+
+.dz-reset,
+.dz-close {
+  font-size: 14px;
+}
+
+.dz-close {
+  margin-left: auto;
+}
+
+.dz-level {
+  min-width: 56px;
+  text-align: center;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--atyx-gold);
+  letter-spacing: 0.04em;
+}
+
+.diagram-zoom-hint {
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #8A8579;
+  border-top: 1px solid #232228;
+  background: rgba(20, 19, 24, 0.9);
+}
+
+.diagram-zoom-hint kbd {
+  background: #1c1b21;
+  border: 1px solid #3a3942;
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  color: #ECE8E1;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .diagram-zoom-toolbar {
+    gap: 6px;
+    padding: 10px;
+  }
+  .dz-btn {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 8px;
+    font-size: 16px;
+  }
+  .diagram-zoom-content {
+    max-width: 98vw;
+    max-height: 78vh;
+  }
+  .diagram-zoom-content svg {
+    max-width: 98vw;
+    max-height: 78vh;
+  }
+  .diagram-zoom-hint {
+    font-size: 10px;
+  }
+}
