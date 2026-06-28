@@ -1,13 +1,96 @@
 # Atyx Convo-KG — User Stories
 
-> **Single-user local prototype — no authentication, no user accounts, no roles.**
-> The "user types" below are _functional_ personas describing how someone interacts with the
-> system, not access levels. There is no login screen, no admin panel, and no multi-tenancy.
+> **Who it's for vs. how the prototype runs.** Atyx Convo-KG is built for a **private-wealth firm**
+> — a PMS / AIF / RIA whose advisors are in client conversations all day. The **domain personas**
+> below (Relationship Manager, Compliance Officer) describe **who the product serves and why**. The
+> **prototype interaction personas** further down (Analyst, Operator) describe **how the single-user
+> local demo is actually driven** — there is no login, no accounts, and no multi-tenancy in v1.
 
 See also: [./wireflows.md](./wireflows.md) · [./wireframes.md](./wireframes.md) ·
 [./product-overview.md](./product-overview.md) · [./deployment-guide.md](./deployment-guide.md)
 
 ---
+
+## The product, in one line
+
+Turn every advisor–client conversation into a structured, queryable record of the **advice given** —
+products, strategies, fees, and suitability — automatically, and **without a word leaving the firm**.
+
+### Why local, why now
+
+These calls carry client PII, live portfolio positions, and sometimes material non-public
+information. They **cannot** be shipped to a cloud frontier API. Running extraction and Q&A on a
+**local open-weight LLM** is not a constraint we merely tolerated — it is the reason the product can
+exist inside a regulated wealth firm at all. **Data residency is the moat.**
+
+---
+
+## Domain persona: Relationship Manager / Wealth Advisor
+
+An RM has dozens of client conversations a week — advisory calls, product walk-throughs, suitability
+discussions. The advice given in those calls (what was recommended, why, and for whom) is the firm's
+most valuable and most perishable asset. Today it lives in the RM's memory or hand-typed CRM notes.
+
+### US-RM1 — Recall what was recommended without re-listening
+
+> As an RM, I want to ask _"what strategy did we recommend on this call?"_ and get a grounded answer
+> with the exact quote, so that I can prep the follow-up in seconds instead of re-listening to a
+> ten-minute recording.
+
+- **Value:** advice recall; zero manual note-taking.
+- **Demonstrated in the prototype by:** US-A3 (preset _"What strategy does a PMS follow?"_),
+  US-A4 (free-form question), US-A2 (graph trace of the `FOLLOWS_STRATEGY` edges).
+
+### US-RM2 — Reconstruct the comparison basis presented to the client
+
+> As an RM, I want to see how the recommended product was framed against alternatives (e.g. PMS vs.
+> mutual fund), so that I keep my positioning consistent across every client touchpoint.
+
+- **Value:** consistent positioning; faster, accurate onboarding of new clients.
+- **Demonstrated by:** US-A3 / US-A4 over the `COMPARES_TO` and `SEGREGATES_FROM` edges.
+
+### US-RM3 — Confirm who a product was positioned as suitable for
+
+> As an RM, I want to ask _"who is this product suitable for?"_ and see the suitability segment that
+> was actually discussed, so that I document suitability the way the conversation framed it.
+
+- **Value:** suitability captured at the source, not reconstructed from memory.
+- **Demonstrated by:** US-A3 / US-A4 over `TARGETS_DEMOGRAPHIC` (Affluent HNI segment).
+
+---
+
+## Domain persona: Compliance Officer
+
+The Compliance Officer must be able to show — in line with SEBI suitability expectations — that the
+advice given was appropriate, was actually said, and never left the firm's control. They care about
+audit trails, groundedness, and data residency.
+
+### US-C1 — Trust that every answer is grounded, never fabricated
+
+> As a Compliance Officer, I want every answer to carry the source quote it came from, and I want the
+> system to **decline** when a question isn't supported by the conversation, so that the record is
+> defensible and never invented.
+
+- **Value:** audit-ready, defensible answers; no hallucinated advice on the record.
+- **Demonstrated by:** US-A3 (◆ source quote), US-A3-S2 and US-A4-S3 (honest decline at the cosine
+  floor — _"No answer found in the graph."_).
+
+### US-C2 — Keep all processing on-premise
+
+> As a Compliance Officer, I want extraction and Q&A to run entirely on local infrastructure, so that
+> client PII, portfolio data, and MNPI never leave the firm's control.
+
+- **Value:** data residency; regulatory defensibility.
+- **Demonstrated by:** the whole stack — local LM Studio + local Neo4j (US-O3); the pipeline makes
+  **no external API calls**.
+
+---
+
+# Prototype interaction personas
+
+> The two personas below are _functional_ roles describing how the **single-user local demo** is
+> driven — not access levels. There is no login screen, no admin panel, and no multi-tenancy. In a
+> real deployment, the RM and Compliance Officer above are served through these same surfaces.
 
 ## Persona: Analyst / end-user
 

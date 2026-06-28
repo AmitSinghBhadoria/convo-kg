@@ -1,8 +1,14 @@
 # Atyx Convo-KG
 
-From recorded multi-party **Hinglish audio** → speaker-attributed **English transcript** → an
-induced-ontology **knowledge graph** (Neo4j) → natural-language **Q&A**, running fact extraction
-and Q&A on a **local open-weight LLM**. Built to take arbitrary, noisy real-world audio.
+**Conversation intelligence for private wealth.** Turn every advisor–client call into a
+queryable record of the **advice given** — products, strategies, fees, suitability — so a
+Relationship Manager can recall any call instantly and compliance can audit it with a source
+quote behind every answer. Because the calls carry client PII and portfolio data, the whole
+thing runs **on a local open-weight LLM** — nothing leaves the firm.
+
+Under the hood: recorded multi-party **Hinglish audio** → speaker-attributed **English
+transcript** → an induced-ontology **knowledge graph** (Neo4j) → natural-language **Q&A**, with
+fact extraction and Q&A on a local LLM. Built to take arbitrary, noisy real-world audio.
 
 > See `docs/superpowers/specs/` (design) and `docs/superpowers/plans/` (build plans).
 

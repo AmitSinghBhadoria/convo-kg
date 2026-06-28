@@ -2,8 +2,8 @@
 layout: home
 hero:
   name: Atyx Convo-KG
-  text: Conversational Knowledge Graph
-  tagline: Noisy multi-party Hinglish audio → grounded, queryable knowledge — on a local open-weight LLM
+  text: Conversation intelligence for private wealth
+  tagline: Turn every advisor–client call into a queryable record of the advice given — products, strategies, fees, suitability — on a local open-weight LLM, with nothing leaving the firm.
   actions:
     - theme: brand
       text: Product Overview
@@ -22,7 +22,7 @@ features:
     details: Neo4j graph schema — node labels (Speaker, Statement, Entity, Claim, Attribute), typed relation edges, Pydantic data contracts, and entity resolution rules.
     link: ./entity-relationship
   - title: User Stories
-    details: Analyst and Operator user stories with acceptance criteria covering the full pipeline — upload, run, transcript, graph, Q&A, and Experiment tab.
+    details: Domain personas (Relationship Manager, Compliance Officer) framing the value, plus prototype interaction roles (Analyst, Operator) with acceptance criteria across the full pipeline.
     link: ./user-stories
   - title: Wireflows
     details: Screen-level user flows for clip selection, pipeline run, live audio upload, Ask-Atyx Q&A, and the controlled-SNR Experiment tab.
@@ -54,7 +54,7 @@ features:
 
 ### User experience
 
-- [User Stories](./user-stories.md) — Analyst / Operator stories; acceptance criteria; explicit out-of-scope (no auth, no cloud)
+- [User Stories](./user-stories.md) — domain personas (RM, Compliance Officer) + Analyst / Operator interaction roles; acceptance criteria; explicit out-of-scope (no auth, no cloud)
 - [Wireflows](./wireflows.md) — user flows: clip picker, run pipeline, live upload, Q&A chat, Experiment tab
 - [Wireframes](./wireframes.md) — annotated screen layouts for Console (graph mode, facts/live mode) and Experiment tab
 

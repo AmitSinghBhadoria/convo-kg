@@ -89,6 +89,37 @@ erDiagram
 
 ---
 
+## Domain ontology — what the advisory clip actually instantiates
+
+The labels above are a **generic backbone** (`Speaker`/`Statement` provenance + `Entity`/`Claim`/`Attribute` concepts). The *types* and *edges* are **induced per clip**, not hand-coded — so the schema stays domain-agnostic while each conversation instantiates its own vocabulary. The verified private-wealth advisory clip (`pms`) induces a recognizably **wealth-advisory ontology**:
+
+**Concept types observed (the `type` field on concept nodes):**
+
+| Induced type | Examples from the verified graph |
+|--------------|----------------------------------|
+| `InvestmentProduct` | PMS, Mutual Fund, Small-Cap Stocks |
+| `InvestmentStrategy` | Broad Portfolio Strategy, Concentrated Small-Cap Strategy, Consistency of Alpha, Conservative Strategy |
+| `FeeStructure` | Performance-Linked Fee, Flat Fee |
+| `MarketSegment` | Affluent HNI Segment, Small/Mid/Large-Cap Segment, BSE 500 Segment |
+| `RegulatoryBody` | AIF Regulation |
+
+**Fact edges observed (the induced relation vocabulary):**
+
+| Edge | Captures | RM / Compliance value |
+|------|----------|------------------------|
+| `FOLLOWS_STRATEGY` | which strategy a product pursues | what was actually recommended |
+| `FEATURES_FEE_STRUCTURE` | the fee model presented | fee disclosure |
+| `TARGETS_DEMOGRAPHIC` | who a product is positioned for | documented suitability |
+| `HAS_MINIMUM_CORPUS` | eligibility threshold | client eligibility |
+| `COMPARES_TO` / `SEGREGATES_FROM` | how the product was framed vs. alternatives | the comparison basis given to the client |
+| `LOCATED_IN_SEGMENT` / `IMPACTED_BY_BEHAVIOR` | market-segment placement, behavioural caveats | advisory context |
+
+These map directly to the demo questions and the [Relationship Manager / Compliance Officer user stories](./user-stories.md) — e.g. *"What strategy does the PMS follow?"* is one hop along `FOLLOWS_STRATEGY`; *"Who is it suitable for?"* is one hop along `TARGETS_DEMOGRAPHIC`.
+
+> **Single-hop now, multi-hop-ready.** Because products, strategies, fees, and segments are **first-class nodes** (not text), today's single-hop answers extend to multi-hop traversals without schema change — the natural extension being **across clients/calls** (e.g. *"which clients were positioned into the concentrated small-cap strategy?"*) once multiple conversations populate the same graph. The ceiling is local ~9B Cypher-generation quality, not the data model. A `Commitment` concept type with a due-date attribute is the obvious next induced type for portfolio-review calls (vs. the product-advisory call demoed here).
+
+---
+
 ## Provenance and Grounding
 
 Every fact edge in the concept graph carries a `source_statement_id` property. This is the mechanism by which an extracted fact can be traced back to the exact spoken utterance that produced it:

@@ -4,6 +4,21 @@
 > accuracy-vs-noise observations. This note grows as phases land; sections marked
 > _(pending)_ are not yet built and are not claimed to work.
 
+## Use case, and why local is the point
+
+The target user is a **private-wealth firm** (PMS / AIF / RIA): turn each advisor–client
+conversation into a queryable record of the **advice given** — products, strategies, fees,
+suitability — so a Relationship Manager can recall it instantly and a Compliance Officer can
+audit it with a source quote behind every answer.
+
+This use case is what makes the **local open-weight LLM** a requirement rather than a
+take-home rule. These calls carry client PII, live portfolio positions, and sometimes MNPI;
+they cannot be sent to a cloud frontier API. Everything below — the torch-free main env, the
+sequential single-resident-model memory plan, the on-device extraction and Q&A — exists to
+keep the entire pipeline on the firm's own machine. **Data residency is the moat, not a
+limitation.** The accuracy ceiling of a ~9B local model (measured later in this note) is the
+deliberate price paid for that property.
+
 ## Pipeline (one line)
 
 `Audio → Denoise (DeepFilterNet) → Diarization (pyannote) → Hinglish→English ASR

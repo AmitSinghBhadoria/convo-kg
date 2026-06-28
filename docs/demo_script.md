@@ -43,11 +43,18 @@
 
 ## 1. Frame it (30 s)
 
-> "Atyx takes **recorded multi-party Hinglish conversations** — noisy, real-world audio —
-> and turns them into a **queryable knowledge graph** you can ask natural-language
-> questions about. The hard constraint: **extraction and Q&A run entirely on a local,
-> open-weight LLM** — no frontier API. Let me show you the verified result first, then
-> run the whole pipeline live on an arbitrary clip, then show you exactly where it breaks."
+> "The use case is **private wealth**: a Relationship Manager has dozens of advisory calls a
+> week, and the advice given on them — what was recommended, how it compares, who it's suitable
+> for — evaporates into memory or hand-typed CRM notes. Atyx takes those **recorded multi-party
+> Hinglish conversations** — noisy, real-world audio — and turns them into a **queryable
+> knowledge graph**, so the RM can recall any call instantly and compliance can audit it with a
+> source quote behind every answer.
+>
+> The constraint that shapes everything: these calls carry client PII and portfolio data, so
+> **extraction and Q&A run entirely on a local, open-weight LLM** — nothing leaves the firm.
+> That's not a limitation here, it's the whole reason this can exist in a regulated firm. Let me
+> show you the verified result first, then run the whole pipeline live on an arbitrary clip,
+> then show you exactly where it breaks."
 
 ---
 
@@ -149,7 +156,8 @@ ideally a clip **he** brings.*
 
 | They ask | Your answer |
 |---|---|
-| Why a local open-weight LLM? | It's the brief's hard constraint — and it proves the approach works without a frontier API (privacy, cost, on-device). |
+| Why a local open-weight LLM? | For this use case it's a requirement, not just the brief's constraint: advisor–client calls carry PII, portfolio positions, and sometimes MNPI — they can't go to a cloud API. Running on-device is what lets a regulated wealth firm process them at all. Data residency is the moat; the ~9B accuracy ceiling is the deliberate price. |
+| Why private wealth / this domain? | It's where the constraints line up: high-value spoken advice that's currently lost, a hard data-residency requirement that rules out cloud LLMs, and naturally code-mixed (Hinglish) Indian HNI client calls. The verified clip is a real PMS advisory conversation. |
 | Why single-hop only? | Scoped per the brief. The graph is multi-hop-ready (first-class entities/edges) — I can walk a worked multi-hop example in the design note. |
 | How accurate is extraction? | Honestly: it's the measured ceiling on noisy Hinglish. See the SNR curve and the capability-boundary section of `design_note.md`. |
 | Why one speaker on the 911 clip? | Phone audio (narrowband, single mixed channel) defeats pyannote speaker separation. Named in the UI, not hidden. |

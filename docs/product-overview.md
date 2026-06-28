@@ -1,12 +1,33 @@
 # Atyx Convo-KG — Product Overview
 
+## In one line
+
+Turn every advisor–client conversation into a structured, queryable record of the **advice
+given** — products, strategies, fees, and suitability — automatically, and **without a word
+leaving the firm**.
+
+## Who it's for
+
+Atyx Convo-KG is built for a **private-wealth firm** — a PMS / AIF / RIA whose Relationship
+Managers are in client conversations all day. The advice given on those calls (what was
+recommended, why, and for whom) is the firm's most valuable and most perishable asset; today
+it lives in an RM's memory or hand-typed CRM notes. The product captures it automatically and
+makes it queryable, with a source quote behind every answer for compliance.
+
+**Why it has to run locally.** These calls carry client PII, live portfolio positions, and
+sometimes material non-public information. They cannot be shipped to a cloud frontier API.
+Running extraction and Q&A on a **local open-weight LLM** is not a constraint we merely
+tolerated — it is the reason the product can exist inside a regulated wealth firm at all.
+Data residency is the moat. See [User Stories](./user-stories.md) for the Relationship Manager
+and Compliance Officer personas.
+
 ## Executive summary
 
-Atyx Convo-KG is a local, batch-mode research prototype that turns recorded multi-party
-conversations — spoken in Hinglish (Hindi-English code-mix), often over background noise —
-into a structured knowledge graph and answers natural-language questions about what was said.
-Every stage of the pipeline runs on-device using open-weight models; no data leaves the
-machine and no frontier API is called.
+Atyx Convo-KG is a local, batch-mode prototype that turns recorded multi-party conversations
+— spoken in Hinglish (Hindi-English code-mix), often over background noise — into a structured
+knowledge graph and answers natural-language questions about what was said. Every stage of the
+pipeline runs on-device using open-weight models; no data leaves the machine and no frontier
+API is called.
 
 The system chains five sequential stages: speech enhancement (DeepFilterNet), speaker
 diarization (pyannote.audio), Hinglish-to-English ASR (mlx-whisper large-v3), LLM-driven
@@ -14,6 +35,10 @@ fact extraction with an induced-per-clip ontology (Qwen3.5-9B 4-bit via LM Studi
 single-hop natural-language Q&A grounded against the populated Neo4j graph. Each answer
 carries a verbatim source quote and the graph nodes it touched; the system will decline to
 answer rather than hallucinate when no evidence is found.
+
+The verified demo runs on a real ten-minute private-wealth advisory call (a PMS product
+walk-through): the graph captures the products, strategies, fee structures, and suitability
+segment discussed, and the Q&A answers questions about them with provenance.
 
 This is an honest-scope prototype. It is single-user and local-only; there is no
 authentication, no cloud deployment, no real-time streaming, and no multi-tenancy. The
@@ -25,16 +50,21 @@ observable.
 
 ## The problem
 
-Recorded meetings, advisory calls, and multi-party discussions in mixed Hindi-English
-environments contain high-value information — commitments, decisions, named entities,
-numbers — that is buried in noisy audio and never extracted. Existing tools either require
-cloud APIs (privacy risk), do not handle code-mixed Hinglish, flatten facts into raw
-transcripts (losing structure), or conflate multiple speakers.
+A wealth advisor's client conversations — advisory calls, product walk-throughs, suitability
+discussions, held in mixed Hindi-English — contain the firm's highest-value information: what
+was recommended, how it was positioned against alternatives, the fees disclosed, and who it
+was deemed suitable for. That information is buried in noisy audio and never extracted. It
+evaporates into memory or gets hand-typed into a CRM, and the compliance trail (what advice
+was given, and was it appropriate) has to be reconstructed after the fact.
 
-Atyx Convo-KG addresses the full chain: denoise the audio, separate speakers, transcribe
-and translate Hinglish to English, extract structured facts into a queryable knowledge graph,
-and answer questions with grounded, citable answers — all on a local open-weight LLM running
-on a single developer laptop.
+Existing tools don't fit this setting: they require cloud APIs (a non-starter for PII /
+portfolio / MNPI data), do not handle code-mixed Hinglish, flatten facts into raw transcripts
+(losing the structure a graph needs), or conflate multiple speakers.
+
+Atyx Convo-KG addresses the full chain: denoise the audio, separate speakers, transcribe and
+translate Hinglish to English, extract structured facts into a queryable knowledge graph, and
+answer questions with grounded, citable answers — all on a local open-weight LLM running on a
+single laptop, with nothing leaving the firm.
 
 ---
 
@@ -68,10 +98,19 @@ on a single developer laptop.
 
 ## Target users
 
-This is a single-user local prototype. There is **no authentication, no login, no user
-accounts, no admin panel, and no role system**.
+**Who the product serves** (domain personas — see [User Stories](./user-stories.md) for the
+full stories and acceptance criteria):
 
-| User type | Description |
+| Persona | What they get |
+|---------|---------------|
+| **Relationship Manager / Wealth Advisor** | Recall what was recommended on any call — strategy, comparison basis, suitability — in seconds, with the exact quote, instead of re-listening to recordings or typing CRM notes. |
+| **Compliance Officer** | An audit-ready, grounded record of the advice given: every answer cites its source, the system declines rather than fabricate, and nothing ever leaves the firm's infrastructure. |
+
+**How the prototype is driven.** This v1 is a single-user local prototype. There is **no
+authentication, no login, no user accounts, no admin panel, and no role system** — in a real
+deployment the personas above are served through the same surfaces.
+
+| Prototype role | Description |
 |-----------|-------------|
 | **Analyst / end-user** | Opens the browser UI at `http://localhost:8000`, selects a clip (or uploads one), runs the pipeline, reads the transcript, browses the knowledge graph, and asks questions via Ask-Atyx chat. |
 | **Operator / developer** | Runs `./setup.sh` and `./start.sh` to install dependencies and start the server; edits `.env` for Neo4j password and HF token; loads models in LM Studio; may add clips to `config.yaml`. |
@@ -82,9 +121,9 @@ accounts, no admin panel, and no role system**.
 
 | Property | What it means in practice |
 |----------|--------------------------|
-| **Privacy / on-device** | All audio, transcripts, and extracted facts stay on the local machine. No cloud API, no telemetry. |
-| **Grounded, honest answers** | Every Q&A answer cites the verbatim statement it came from. The system returns `found: false` rather than hallucinate when evidence is absent. |
-| **Multi-hop-ready graph** | Facts are stored as first-class entity nodes and typed relation edges, not text blobs. Single-hop queries work today; multi-hop traversals are a graph query away (constrained by local ~9B LLM Cypher quality, not architecture). |
+| **Data residency is the moat** | All audio, transcripts, and extracted facts stay on the firm's machine. No cloud API, no telemetry — the one thing that lets PII / portfolio / MNPI conversations be processed at all in a regulated wealth firm. |
+| **Grounded, honest answers** | Every Q&A answer cites the verbatim statement it came from. The system returns `found: false` rather than hallucinate when evidence is absent — an audit-ready, defensible record. |
+| **Captures the advice, not just the audio** | The graph holds the products, strategies, fees, and suitability segment that were actually discussed — as first-class entity nodes and typed relation edges, not text blobs. Single-hop queries work today; multi-hop traversals (e.g. across clients) are a graph query away (constrained by local ~9B LLM Cypher quality, not architecture). |
 | **Measurement-driven** | SNR degradation curves and spotcheck rows make the accuracy ceiling visible and reproducible, not claimed. |
 | **Reproducible** | `./setup.sh` + `.env` edit + `./start.sh` is the full setup; no Docker for the app itself; three isolated venvs handle irreconcilable torch pins cleanly. |
 
@@ -168,7 +207,7 @@ flowchart LR
 | [Product Overview](./product-overview.md) | This document — executive summary, features, stack, limitations |
 | [System Architecture](./system-architecture.md) | Three-venv pipeline design, component interactions, data flow |
 | [Entity Relationship](./entity-relationship.md) | Neo4j graph schema — node labels, relationship types, Pydantic contracts |
-| [User Stories](./user-stories.md) | Analyst and Operator user stories; acceptance criteria |
+| [User Stories](./user-stories.md) | Domain personas (Relationship Manager, Compliance Officer) and prototype interaction roles (Analyst, Operator); acceptance criteria |
 | [Wireflows](./wireflows.md) | Screen-level user flows — clip selection, run, upload, Q&A, Experiment tab |
 | [Wireframes](./wireframes.md) | UI layout annotations — Console and Experiment screens |
 | [Sequence Diagrams](./sequence-diagrams.md) | Request/response sequences for every API call + SSE stream |
