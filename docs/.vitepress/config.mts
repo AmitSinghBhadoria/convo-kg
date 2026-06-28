@@ -8,6 +8,9 @@ export default withMermaid(
     description:
       'Noisy multi-party Hinglish audio → grounded, queryable knowledge graph — on a local open-weight LLM.',
     lang: 'en-US',
+    // Project Pages are served under /<repo>/, so assets/links must be prefixed.
+    // https://amitsinghbhadoria.github.io/convo-kg/
+    base: '/convo-kg/',
     cleanUrls: true,
     lastUpdated: true,
 
