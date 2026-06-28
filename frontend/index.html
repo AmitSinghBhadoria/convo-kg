@@ -142,6 +142,9 @@ button { font:inherit; }
             <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579;">Transcript</span>
             <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.1em; color:#5b5750;">Hinglish → English</span>
           </div>
+          <sc-if value="{{ oneSpeakerNote }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:9px 16px; border-bottom:1px solid #232228; font-family:'JetBrains Mono',monospace; font-size:9.5px; line-height:1.5; color:#8a7330; letter-spacing:0.04em;">single-channel / phone-quality audio — diarization could not separate speakers (one shown)</div>
+          </sc-if>
           <div ref="{{ tRef }}" style="flex:1; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:2px;">
             <sc-for list="{{ rows }}" as="l" hint-placeholder-count="3">
               <div style="display:flex; gap:12px; padding:9px 11px; border-radius:9px; border:1px solid {{ l.rowBorder }}; background:{{ l.rowBg }}; transition:background .4s ease, border-color .4s ease; animation:atyxfade .4s ease both;">
@@ -567,6 +570,12 @@ class Component extends DCLogic {
 
     const spShort = spk => String(spk || '').replace(/SPEAKER_0*(\d+)/, 'S$1');
     const fmtT = t => { const s = Math.round(Number(t)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+    // Honest diarization note: surfaced only when the transcript actually
+    // resolved to a single speaker (the 911 phone clips collapse this way;
+    // a clean multi-party upload would not trigger it).
+    const distinctSp = new Set((st.streamLines || []).map(l => l.speaker || l.sp));
+    const oneSpeakerNote = isFactsMode && st.run !== 'idle'
+      && (st.streamLines || []).length > 0 && distinctSp.size <= 1;
     const rows = (st.streamLines || []).slice(0, st.tlines).map((l, i) => {
       const sp = spShort(l.speaker || l.sp);
       return {
@@ -675,6 +684,7 @@ class Component extends DCLogic {
       expTabStyle: this.tabStyle(st.screen==='experiment'),
 
       isGraphMode, isFactsMode,
+      oneSpeakerNote,
       gridCols: isGraphMode ? '264px 1fr 372px' : '264px 1fr',
 
       clipRows,
