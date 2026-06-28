@@ -7,6 +7,7 @@ paths:
   work: data/work
   noisy: data/noisy
   ground_truth: data/ground_truth
+  uploads: data/uploads
 extract:
   # 700 (was 1800): smaller chunks force the model to process each portion of a
   # dense conversation and close the facts array naturally, avoiding the greedy
@@ -31,3 +32,7 @@ limits:
   max_minutes: 15
 demo:
   clip: pms
+  clips:
+    - {id: pms, label: PMS-advisory.wav, mode: graph, domain: "Private-wealth advisory (Hinglish)", speakers: 2}
+    - {id: call_100, label: call_100.wav, mode: facts, domain: "911 dispatch — water rescue", speakers: 2}
+    - {id: call_103, label: call_103.wav, mode: facts, domain: "911 dispatch — active shooter", speakers: 2}

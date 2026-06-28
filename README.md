@@ -4,9 +4,49 @@ From recorded multi-party **Hinglish audio** → speaker-attributed **English tr
 induced-ontology **knowledge graph** (Neo4j) → natural-language **Q&A**, running fact extraction
 and Q&A on a **local open-weight LLM**. Built to take arbitrary, noisy real-world audio.
 
-> Status: in development. See `docs/superpowers/specs/` (design) and `docs/superpowers/plans/` (build plans).
+> See `docs/superpowers/specs/` (design) and `docs/superpowers/plans/` (build plans).
+
+## Quick start (demo)
+
+Two scripts run the whole demo: `setup.sh` builds the environments, `start.sh` serves the UI.
+
+Three external services must be installed/running first — they can't be scripted:
+
+1. **[uv](https://docs.astral.sh/uv/)** — Python env manager.
+2. **Neo4j Desktop** — create a local instance, set a password, **Start** it.
+3. **LM Studio** — load `qwen/qwen3.5-9b` + a `nomic-embed` model, with **Reasoning/Thinking OFF** (see [Local LLM](#local-llm)).
+
+Then:
+
+```bash
+./setup.sh                 # build envs + write a template .env   (SKIP_AUDIO=1 ./setup.sh = demo-only, skips the heavy torch venvs)
+# edit .env — set NEO4J_PASSWORD (and HF_TOKEN only if you'll process audio)
+./start.sh                 # preflights Neo4j + LM Studio, restores the verified graph, opens http://localhost:8000
+```
+
+`start.sh` restores the verified PMS demo graph from the committed snapshot when the DB is
+empty (`./start.sh --restore` forces it), and `PORT=8001 ./start.sh` serves on another port.
+**Demo-only:** `SKIP_AUDIO=1 ./setup.sh` skips `.venv-asr` / `.venv-denoise`; the main `.venv`
+alone runs the PMS graph + Q&A, the replay clips, and the Experiment tab — you only need the
+audio venvs to process a fresh upload or regenerate artifacts.
+
+### What you'll see
+
+- **PMS hero** (the default clip) — the verified end-to-end result: an induced-ontology
+  knowledge graph (Neo4j) and grounded single-hop **Ask Atyx** Q&A. The only clip with a
+  graph and Q&A.
+- **Clip dropdown** — switch to two pre-processed **911 dispatch** clips. They run in *facts
+  mode* (pipeline rail + transcript + auto-extracted facts, shown **unverified** — no
+  graph/Q&A) and honestly demonstrate the noisy-audio ceiling: single-channel phone audio
+  collapses diarization to one speaker.
+- **Live upload** — drop an arbitrary audio clip (**≤ 10 min**) and watch the real pipeline
+  run end-to-end (denoise → diarize → ASR → extract) with streamed progress. Uploaded clips
+  never touch the verified graph; they render in facts mode. Processing is real and can take
+  minutes — a ~60–90 s clip is the watchable sweet spot.
 
 ## Environment setup
+
+> `./setup.sh` automates everything in this section; it's the manual breakdown / reference.
 
 Because the audio ML libraries have **mutually incompatible `torchaudio` requirements**, the heavy
 audio stages run in their own pinned virtualenvs, invoked as subprocesses (consistent with the

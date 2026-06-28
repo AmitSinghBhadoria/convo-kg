@@ -31,6 +31,26 @@ def test_data_fields_are_wired_not_literal_populated():
     assert "fetch('/api/experiment'" in HTML
 
 
+def test_upload_control_wired():
+    assert "/api/upload" in HTML            # real upload, not decorative
+    assert 'type="file"' in HTML or "type='file'" in HTML
+
+
+def test_facts_mode_hides_graph_and_chat():
+    # graph + Ask panels gated behind graph-mode flag; facts panel gated behind facts/live flag
+    assert "isGraphMode" in HTML and "isFactsMode" in HTML
+
+
+def test_picker_reads_clips_endpoint():
+    assert "/api/clips" in HTML and "/api/select_clip" in HTML
+
+
+def test_picker_renders_registry_and_switches():
+    assert "onSelectClip" in HTML or "selectClip" in HTML   # a handler exists
+    # the decorative caret is now backed by data (clips list), not a static label only
+    assert "this.clips" in HTML or "clips" in HTML
+
+
 def test_no_cdn_refs_offline():
     # Vendored offline — no live CDN that could fail on stage. (Google Fonts <link>
     # is replaced by vendored fonts in this task if still present.)

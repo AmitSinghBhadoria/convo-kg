@@ -61,18 +61,30 @@ button { font:inherit; }
 
   <!-- ============ CONSOLE ============ -->
   <sc-if value="{{ isConsole }}" hint-placeholder-val="{{ true }}">
-  <div data-screen-label="Console" style="flex:1; min-height:0; display:grid; grid-template-columns:264px 1fr 372px;">
+  <div data-screen-label="Console" style="flex:1; min-height:0; display:grid; grid-template-columns:{{ gridCols }};">
 
     <!-- LEFT RAIL -->
     <div style="border-right:1px solid #232228; padding:22px 20px; display:flex; flex-direction:column; gap:22px; overflow-y:auto;">
       <div>
         <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579; margin-bottom:10px;">Clip</div>
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 13px; background:#141318; border:1px solid #232228; border-radius:10px;">
-          <div>
-            <div style="font-size:13.5px; color:#ECE8E1; font-weight:500;">PMS&#8209;advisory.wav</div>
-            <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#5b5750; margin-top:3px; letter-spacing:0.04em;">1:35 · 16 kHz · 2 spk</div>
+        <div style="position:relative;">
+          <div onClick="{{ togglePicker }}" style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:#141318; border:1px solid #2c2a33; border-radius:9px; cursor:pointer;">
+            <div>
+              <div style="font-size:13px; color:#ECE8E1; font-weight:500;">{{ activeClipLabel }}</div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; margin-top:2px; letter-spacing:0.04em;">{{ activeClipDomain }}</div>
+            </div>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#8A8579; margin-left:10px;">{{ pickerCaret }}</span>
           </div>
-          <span style="color:#5b5750; font-size:12px;">▾</span>
+          <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:5px; margin-top:5px;">
+              <sc-for list="{{ clipRows }}" as="cr" hint-placeholder-count="3">
+                <div onClick="{{ cr.onClick }}" style="{{ cr.rowStyle }}">
+                  <div style="font-size:13px; color:{{ cr.labelColor }}; font-weight:500;">{{ cr.label }}</div>
+                  <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; margin-top:2px; letter-spacing:0.04em;">{{ cr.domain }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
         </div>
       </div>
 
@@ -101,7 +113,7 @@ button { font:inherit; }
 
       <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ false }}">
         <div>
-          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#8a7330; letter-spacing:0.05em; margin-bottom:6px;">live extraction — illustrative; Q&amp;A queries the verified pre-built graph</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#8a7330; letter-spacing:0.05em; margin-bottom:6px;">automatic extraction — unverified · this clip has no graph or Q&amp;A</div>
           <div style="max-height:100px; overflow-y:auto; display:flex; flex-direction:column;">
             <sc-for list="{{ liveFacts }}" as="f" hint-placeholder-count="0">
               <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; line-height:1.4; padding:3px 0; border-bottom:1px solid #1e1d24;">{{ f }}</div>
@@ -115,11 +127,12 @@ button { font:inherit; }
     <div style="padding:20px 22px; display:flex; flex-direction:column; gap:16px; min-height:0;">
 
       <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ true }}">
-        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center;">
+        <label style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; cursor:pointer;">
           <div style="width:54px; height:54px; border:1px solid #2b2a31; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#3a3942; font-size:20px; margin-bottom:6px;">↑</div>
-          <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:34px; font-weight:500; color:#ECE8E1; letter-spacing:0.01em;">Drop a conversation to begin.</div>
-          <div style="font-size:13px; color:#5b5750;">or press <span style="color:#C8A24E;">Run live</span> to replay the sample clip.</div>
-        </div>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:34px; font-weight:500; color:#ECE8E1; letter-spacing:0.01em;">Upload a conversation to begin.</div>
+          <div style="font-size:13px; color:#5b5750;">click to select an audio file · or use <span style="color:#C8A24E;">Run replay</span> to load the selected clip</div>
+          <input type="file" accept="audio/*" onChange="{{ onUpload }}" style="display:none;" />
+        </label>
       </sc-if>
 
       <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ false }}">
@@ -129,6 +142,9 @@ button { font:inherit; }
             <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579;">Transcript</span>
             <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.1em; color:#5b5750;">Hinglish → English</span>
           </div>
+          <sc-if value="{{ oneSpeakerNote }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:9px 16px; border-bottom:1px solid #232228; font-family:'JetBrains Mono',monospace; font-size:9.5px; line-height:1.5; color:#8a7330; letter-spacing:0.04em;">single-channel / phone-quality audio — diarization could not separate speakers (one shown)</div>
+          </sc-if>
           <div ref="{{ tRef }}" style="flex:1; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:2px;">
             <sc-for list="{{ rows }}" as="l" hint-placeholder-count="3">
               <div style="display:flex; gap:12px; padding:9px 11px; border-radius:9px; border:1px solid {{ l.rowBorder }}; background:{{ l.rowBg }}; transition:background .4s ease, border-color .4s ease; animation:atyxfade .4s ease both;">
@@ -142,7 +158,8 @@ button { font:inherit; }
           </div>
         </div>
 
-        <!-- graph -->
+        <!-- graph — graph mode only -->
+        <sc-if value="{{ isGraphMode }}">
         <div style="flex:1; background:#141318; border:1px solid #232228; border-radius:12px; display:flex; flex-direction:column; min-height:0; position:relative;">
           <div style="display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border-bottom:1px solid #232228;">
             <span style="display:flex; align-items:baseline; gap:9px;"><span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579;">Knowledge Graph</span><span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.04em; color:#5b5750;">click a node to explore</span></span>
@@ -172,10 +189,27 @@ button { font:inherit; }
             </svg>
           </div>
         </div>
+        </sc-if>
+
+        <!-- facts panel — facts/live mode only -->
+        <sc-if value="{{ isFactsMode }}">
+        <div style="flex:1; background:#141318; border:1px solid #232228; border-radius:12px; display:flex; flex-direction:column; min-height:0;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border-bottom:1px solid #232228;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579;">Extracted Facts</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.04em; color:#8a7330;">live / unverified extraction</span>
+          </div>
+          <div style="flex:1; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column;">
+            <sc-for list="{{ liveFacts }}" as="f" hint-placeholder-count="0">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; line-height:1.4; padding:3px 0; border-bottom:1px solid #1e1d24;">{{ f }}</div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
       </sc-if>
     </div>
 
-    <!-- RIGHT PANEL — CHAT -->
+    <!-- RIGHT PANEL — CHAT (graph mode only) -->
+    <sc-if value="{{ isGraphMode }}">
     <div style="border-left:1px solid #232228; display:flex; flex-direction:column; min-height:0;">
       <div style="flex:0 0 auto; padding:17px 20px 14px; border-bottom:1px solid #1c1b21; display:flex; align-items:center; justify-content:space-between;">
         <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#C8A24E;">Ask Atyx</span>
@@ -227,6 +261,7 @@ button { font:inherit; }
         </div>
       </div>
     </div>
+    </sc-if>
   </div>
   </sc-if>
 
@@ -285,7 +320,7 @@ button { font:inherit; }
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false, streamLines:[], liveFacts:[], gsel:null };
+  state = { screen:'console', run:'idle', step:-1, tlines:0, nodes:0, q:'', ans:null, messages:[], elapsed:0, asking:false, streamLines:[], liveFacts:[], gsel:null, clipMode:'graph', pickerOpen:false };
 
   transcript = [];
 
@@ -307,6 +342,8 @@ class Component extends DCLogic {
   ];
 
   chart = null;
+  clipMode = 'graph';
+  clips = [];
 
   tRef = React.createRef();
   chatRef = React.createRef();
@@ -319,6 +356,19 @@ class Component extends DCLogic {
     }).catch(() => {});
     fetch('/api/experiment').then(r => r.json()).then(ex => {
       this.chart = ex; this.forceUpdate();
+    }).catch(() => {});
+    fetch('/api/clips').then(r => r.json()).then(data => {
+      const activeId = (data && data.active) || null;
+      this.clips = ((data && data.clips) || []).map(c => ({ ...c, active: c.id === activeId }));
+      const active = this.clips.find(c => c.active);
+      if (active && active.mode && active.mode !== 'graph') {
+        // Both must be set together: instance prop is the read source (renderVals reads this.clipMode
+        // directly); state copy triggers a re-render so the UI reflects the new mode.
+        this.clipMode = active.mode;
+        this.setState({ clipMode: active.mode });
+      } else {
+        this.forceUpdate(); // repaint picker rows even when staying in graph mode
+      }
     }).catch(() => {});
   }
 
@@ -360,13 +410,15 @@ class Component extends DCLogic {
         this.finishRun();
       });
     }).catch(() => this.finishRun());
-    // Watchdog: if the stream stalls with no events, finish gracefully so the page stays usable.
-    this.runWatchdog = setTimeout(() => { if (this.state.run === 'running') this.finishRun(); }, 90000);
+    // Watchdog: 90 s for graph-mode replay; live uploads get 30 min (rely on done/error events).
+    const watchdogMs = this.clipMode !== 'graph' ? 30 * 60 * 1000 : 90000;
+    this.runWatchdog = setTimeout(() => { if (this.state.run === 'running') this.finishRun(); }, watchdogMs);
   };
 
   finishRun = () => {
     this.closeStream();
-    this.setState({ run:'done', step:5 });
+    const maxStep = this.clipMode !== 'graph' ? 4 : 5;
+    this.setState({ run:'done', step:maxStep });
   };
 
   closeStream() {
@@ -411,6 +463,66 @@ class Component extends DCLogic {
     this.setState(st => ({ messages: st.messages.map((m, j) => j===i ? { ...m, cypherOpen:!m.cypherOpen } : m) }));
   };
 
+  togglePicker = () => this.setState(st => ({ pickerOpen: !st.pickerOpen }));
+
+  selectClip = async (id) => {
+    try {
+      const res = await fetch('/api/select_clip', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) return;
+      const { mode } = await res.json();
+      // Update instance-level clip mode (dual-write pattern: instance prop + state)
+      this.clipMode = mode;
+      // Mark new active clip in the registry list
+      this.clips = this.clips.map(c => ({ ...c, active: c.id === id }));
+      // Reset all transient view state
+      this.setState({
+        clipMode: mode, pickerOpen: false,
+        messages: [], run: 'idle', liveFacts: [], streamLines: [], step: -1, gsel: null, tlines: 0,
+      });
+      // For graph-mode clips, reload the graph snapshot; facts/live clips skip Neo4j
+      if (mode === 'graph') {
+        fetch('/api/graph').then(r => r.json()).then(g => {
+          this.graphNodes = this.layoutNodes(g.nodes);
+          this.graphEdges = g.edges.map(e => ({ from: e.from, to: e.to, label: e.relation }));
+          this.setState(st => ({ nodes: this.graphNodes.length }));
+        }).catch(() => {});
+      }
+    } catch (_) {}
+  };
+
+  onUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await fetch('/api/upload', { method:'POST', body:fd });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ detail:'Upload failed' }));
+        this.setState(st => ({ liveFacts:[...(st.liveFacts||[]), 'error: ' + (err.detail||'upload failed')] }));
+        return;
+      }
+      const { clip_id } = await r.json();
+      const res = await fetch('/api/select_clip', {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ id: clip_id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail:'select_clip failed' }));
+        this.setState(st => ({ liveFacts:[...(st.liveFacts||[]), 'error: ' + (err.detail||'select_clip failed')] }));
+        return;
+      }
+      this.clipMode = 'live';
+      this.setState({ clipMode:'live', run:'idle' });
+      this.startRun();
+    } catch (_) {
+      this.setState(st => ({ liveFacts:[...(st.liveFacts||[]), 'error: upload failed'] }));
+    }
+  };
+
   onKey = (e) => { if(e.key==='Enter') this.ask(null); };
 
   componentDidUpdate(){
@@ -432,12 +544,18 @@ class Component extends DCLogic {
 
   renderVals(){
     const st = this.state;
+    const clipMode = this.clipMode || 'graph';
+    const isGraphMode = clipMode === 'graph';
+    const isFactsMode = !isGraphMode;
+
     const lastBot = [...st.messages].reverse().find(m => m.role === 'assistant');
     const ansObj = lastBot ? { nodeIds: lastBot.nodeIds || [], srcLine:-1 } : null;
     const inAns = new Set(ansObj ? ansObj.nodeIds : []);
     const srcLine = -1;
 
-    const steps = this.steps.map((s, i) => {
+    // In facts/live mode show 4 stages — drop "Graph build"
+    const stepsData = isGraphMode ? this.steps : this.steps.slice(0, 4);
+    const steps = stepsData.map((s, i) => {
       const status = st.run==='done' ? 'done' : (i < st.step ? 'done' : (i===st.step && st.run==='running') ? 'active' : 'pending');
       const filled = status!=='pending';
       return {
@@ -452,6 +570,12 @@ class Component extends DCLogic {
 
     const spShort = spk => String(spk || '').replace(/SPEAKER_0*(\d+)/, 'S$1');
     const fmtT = t => { const s = Math.round(Number(t)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+    // Honest diarization note: surfaced only when the transcript actually
+    // resolved to a single speaker (the 911 phone clips collapse this way;
+    // a clean multi-party upload would not trigger it).
+    const distinctSp = new Set((st.streamLines || []).map(l => l.speaker || l.sp));
+    const oneSpeakerNote = isFactsMode && st.run !== 'idle'
+      && (st.streamLines || []).length > 0 && distinctSp.size <= 1;
     const rows = (st.streamLines || []).slice(0, st.tlines).map((l, i) => {
       const sp = spShort(l.speaker || l.sp);
       return {
@@ -542,6 +666,15 @@ class Component extends DCLogic {
       };
     }
 
+    const clipRows = this.clips.map(c => ({
+      label: c.label,
+      domain: c.domain || c.mode,
+      onClick: () => this.selectClip(c.id),
+      rowStyle: `display:flex; flex-direction:column; padding:9px 12px; background:#141318; border:1px solid ${c.active ? '#C8A24E' : '#232228'}; border-radius:9px; cursor:pointer; transition:border-color .2s ease;`,
+      labelColor: c.active ? '#ECE8E1' : '#8A8579',
+    }));
+    const activeClip = this.clips.find(c => c.active) || this.clips[0] || {};
+
     return {
       isConsole: st.screen==='console',
       isExperiment: st.screen==='experiment',
@@ -550,10 +683,21 @@ class Component extends DCLogic {
       consoleTabStyle: this.tabStyle(st.screen==='console'),
       expTabStyle: this.tabStyle(st.screen==='experiment'),
 
+      isGraphMode, isFactsMode,
+      oneSpeakerNote,
+      gridCols: isGraphMode ? '264px 1fr 372px' : '264px 1fr',
+
+      clipRows,
+      togglePicker: this.togglePicker,
+      pickerOpen: st.pickerOpen,
+      pickerCaret: st.pickerOpen ? '▴' : '▾',
+      activeClipLabel: activeClip.label || '—',
+      activeClipDomain: activeClip.domain || activeClip.mode || '',
       steps,
       onRun: this.startRun,
+      onUpload: this.onUpload,
       runDisabled: st.run==='running',
-      runLabel: st.run==='idle' ? '▶   Run live' : st.run==='running' ? 'Running…' : '↻   Replay run',
+      runLabel: st.run==='running' ? 'Running…' : st.run==='done' ? '↻   Replay run' : (clipMode==='live' ? '▶   Run live' : '▶   Run replay'),
       runStyle:`width:100%; padding:14px; border-radius:11px; border:none; background:${st.run==='running'?'#8a7330':'#C8A24E'}; color:#0A0A0C; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; letter-spacing:0.01em; cursor:${st.run==='running'?'default':'pointer'}; transition:all .3s ease;`,
 
       showEmpty: st.run==='idle',

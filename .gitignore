@@ -117,3 +117,7 @@ dmypy.json
 
 # Isolated audio stack venv (whisperx+pyannote, torch 2.2.2)
 .venv-asr/
+
+# --- Session scratch (browser/agent tool dirs) ---
+.playwright-mcp/
+.serena/

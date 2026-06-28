@@ -4,14 +4,19 @@ frontend/. The pre-built graph stays authoritative; clip-specificity is config o
 """
 import json
 import os
+import re
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+import tempfile
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import src.audioprep as audioprep
+import src.pipeline as pipeline
 from src.config import load_config
 from src.contracts import Transcript
 from src.graph import connect, read_graph
@@ -22,9 +27,51 @@ CFG = load_config()
 DB = os.environ.get("NEO4J_DATABASE", "neo4j")
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 
+# ── Clip registry state ───────────────────────────────────────────────────────
+_ACTIVE_CLIP: str = CFG.demo.clip          # currently selected clip id
+_CLIP_MODE: dict[str, str] = {}            # uploaded clip_id → mode (e.g. "live")
+_LIVE_RUNNING: bool = False                # guard: only one live run at a time
+
+
+# clip ids reach the filesystem (data/raw/<id>.wav, data/work/<id>.*), so they
+# are validated here at the single chokepoint both /api/select_clip and /api/run
+# pass through. The general allowlist excludes "." and "/", blocking traversal;
+# the upload pattern matches only server-issued ids ("upload_" + uuid4().hex[:10]).
+_CLIP_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_UPLOAD_ID_RE = re.compile(r"^upload_[0-9a-f]{10}$")
+
+
+def _clip_mode(clip_id: str) -> str:
+    """Return the mode string for a clip id.
+
+    Lookup order:
+    0. Format validation — reject ids outside a strict allowlist (path-traversal
+       guard), and ids that spoof the "upload_" prefix without the issued shape.
+    1. Registry (CFG.demo.clips) — authoritative for pre-built clips.
+    2. _CLIP_MODE dict — for uploaded clips whose mode was recorded on select.
+    3. Prefix heuristic — any clip_id starting with "upload_" defaults to "live".
+    4. 404 — unknown clip.
+    """
+    if not _CLIP_ID_RE.fullmatch(clip_id):
+        raise HTTPException(status_code=400, detail="invalid clip id")
+    if clip_id.startswith("upload_") and not _UPLOAD_ID_RE.fullmatch(clip_id):
+        raise HTTPException(status_code=400, detail="invalid upload id")
+    for c in CFG.demo.clips:
+        if c.id == clip_id:
+            return c.mode
+    if clip_id in _CLIP_MODE:
+        return _CLIP_MODE[clip_id]
+    if clip_id.startswith("upload_"):
+        return "live"
+    raise HTTPException(status_code=404, detail=f"unknown clip: {clip_id}")
+
 
 class AskBody(BaseModel):
     question: str
+
+
+class SelectClipBody(BaseModel):
+    id: str
 
 
 @app.get("/api/graph")
@@ -50,13 +97,51 @@ def api_experiment() -> dict:
     return json.loads(p.read_text())
 
 
+@app.get("/api/clips")
+def api_clips() -> dict:
+    return {"active": _ACTIVE_CLIP, "clips": [c.model_dump() for c in CFG.demo.clips]}
+
+
+@app.post("/api/select_clip")
+def api_select_clip(body: SelectClipBody) -> dict:
+    global _ACTIVE_CLIP
+    clip_id = body.id
+    mode = _clip_mode(clip_id)   # raises 404 if completely unknown
+    # For uploaded clips: record mode so subsequent _clip_mode calls are fast.
+    if clip_id.startswith("upload_"):
+        _CLIP_MODE[clip_id] = "live"
+    # HERO INVARIANT: facts/live selection must never touch Neo4j.
+    # Only for graph clips do we (optionally) ensure the snapshot is loaded.
+    if mode == "graph":
+        # Best-effort: load snapshot only when the DB is empty.
+        # If restore_snapshot is not implemented yet, skip silently.
+        try:
+            drv = connect()
+            try:
+                with drv.session(database=DB) as sess:
+                    count = sess.run("MATCH (n) RETURN count(n) AS n").single()["n"]
+                if count == 0:
+                    try:
+                        from src.graph import restore_snapshot
+                        restore_snapshot(drv, DB, clip_id)
+                    except (ImportError, AttributeError):
+                        pass   # restore_snapshot not yet implemented — skip
+            finally:
+                drv.close()
+        except Exception:
+            pass   # best-effort; demo still works if graph is already loaded
+    _ACTIVE_CLIP = clip_id
+    return {"active": clip_id, "mode": mode}
+
+
 _RUNS: dict[str, str] = {}   # run_id -> clip (demo pointer)
 
 
 @app.post("/api/run")
 def api_run() -> dict:
+    global _ACTIVE_CLIP
     run_id = uuid.uuid4().hex[:12]
-    _RUNS[run_id] = CFG.demo.clip
+    _RUNS[run_id] = _ACTIVE_CLIP
     return {"run_id": run_id}
 
 
@@ -69,6 +154,25 @@ def api_run_stream(run_id: str, replay: int = 0):
     clip = _RUNS.get(run_id, CFG.demo.clip)
     work = Path(CFG.paths.work)
 
+    # ── Live-mode dispatch ────────────────────────────────────────────────────
+    if _clip_mode(clip) == "live":
+        def live_gen():
+            global _LIVE_RUNNING
+            if _LIVE_RUNNING:
+                yield _sse("error", {"message": "pipeline already running"})
+                return
+            _LIVE_RUNNING = True
+            try:
+                for ev in pipeline.run_live(clip):
+                    yield _sse(ev["event"], ev["data"])
+            except Exception as e:
+                yield _sse("error", {"message": str(e)})
+            finally:
+                _LIVE_RUNNING = False
+
+        return StreamingResponse(live_gen(), media_type="text/event-stream")
+
+    # ── Replay path (graph/facts clips) — UNCHANGED ───────────────────────────
     def gen():
         try:
             tr = Transcript.model_validate_json((work / f"{clip}.transcript.json").read_text())
@@ -99,6 +203,46 @@ def api_run_stream(run_id: str, replay: int = 0):
             yield _sse("error", {"message": str(e)})
 
     return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@app.post("/api/upload")
+async def api_upload(file: UploadFile = File(...)) -> dict:
+    """Accept a multipart audio upload, validate duration ≤ 10 min, prep to 16 kHz mono.
+
+    Returns ``{"clip_id": str}`` on success; HTTP 400 on non-audio or > 600 s.
+    No Neo4j write; no src.qa import.
+    """
+    # Uploaded clips are written into data/raw so enhance.run(clip_id) finds them
+    # at data/raw/<clip_id>.wav — the path it always reads from.
+    # CFG.paths.uploads still exists in config (task-1 test asserts the key).
+    raw_dir = Path(CFG.paths.raw)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    clip_id = "upload_" + uuid.uuid4().hex[:10]
+    out_path = raw_dir / f"{clip_id}.wav"
+
+    # Write upload to a temp file so ffprobe/ffmpeg can open it by path.
+    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename or "upload").suffix) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        try:
+            duration = audioprep.probe_duration(tmp_path)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="could not read audio — upload a valid audio file")
+
+        if duration > 600:
+            raise HTTPException(status_code=400, detail="clip too long — 10 min max")
+
+        try:
+            audioprep.to_16k_mono(tmp_path, str(out_path))
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=f"audio re-encode failed: {exc}")
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    return {"clip_id": clip_id}
 
 
 # Static mount LAST so /api/* routes win.

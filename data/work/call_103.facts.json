@@ -1,0 +1,126 @@
+{
+  "clip": "call_103",
+  "entities": [
+    {
+      "id": "attribute:nelson-building",
+      "label": "Attribute",
+      "type": "Location",
+      "name": "Nelson Building",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:balboa",
+      "label": "Attribute",
+      "type": "Location",
+      "name": "Balboa",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:boardroom",
+      "label": "Attribute",
+      "type": "Room",
+      "name": "Boardroom",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:gun",
+      "label": "Attribute",
+      "type": "Weapon",
+      "name": "Gun",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:man-with-gun",
+      "label": "Attribute",
+      "type": "Person",
+      "name": "Man with gun",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:board-member",
+      "label": "Attribute",
+      "type": "Role",
+      "name": "Board member",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:superintendent",
+      "label": "Attribute",
+      "type": "Role",
+      "name": "Superintendent",
+      "attrs": {}
+    },
+    {
+      "id": "attribute:hostage",
+      "label": "Attribute",
+      "type": "Person",
+      "name": "Hostage",
+      "attrs": {}
+    }
+  ],
+  "facts": [
+    {
+      "subject_id": "attribute:nelson-building",
+      "relation": "LOCATED_IN",
+      "object_id": "attribute:balboa",
+      "statement": "The Nelson Building is located on Balboa.",
+      "statement_id": "stmt:call_103:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 1.0
+    },
+    {
+      "subject_id": "attribute:man-with-gun",
+      "relation": "CURRENTLY_AT",
+      "object_id": "attribute:boardroom",
+      "statement": "The man with the gun is currently in the boardroom.",
+      "statement_id": "stmt:call_103:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 1.0
+    },
+    {
+      "subject_id": "attribute:man-with-gun",
+      "relation": "HOLDING",
+      "object_id": "attribute:gun",
+      "statement": "The man with the gun is holding a gun.",
+      "statement_id": "stmt:call_103:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 1.0
+    },
+    {
+      "subject_id": "attribute:man-with-gun",
+      "relation": "HAS_ROLE",
+      "object_id": "attribute:hostage",
+      "statement": "The man with the gun has hostages in the boardroom.",
+      "statement_id": "stmt:call_103:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 1.0
+    },
+    {
+      "subject_id": "attribute:board-member",
+      "relation": "PARTICIPANT_OF",
+      "object_id": "attribute:boardroom",
+      "statement": "Some board members are in the boardroom.",
+      "statement_id": "stmt:call_103:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 1.0
+    },
+    {
+      "subject_id": "attribute:superintendent",
+      "relation": "PARTICIPANT_OF",
+      "object_id": "attribute:boardroom",
+      "statement": "The superintendent is in the boardroom.",
+      "statement_id": "stmt:call_103:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 1.0
+    },
+    {
+      "subject_id": "attribute:man-with-gun",
+      "relation": "INVOLVED_IN",
+      "object_id": "attribute:hostage",
+      "statement": "The man with the gun has kept some people in the boardroom as hostages.",
+      "statement_id": "stmt:call_103:0",
+      "speaker": "SPEAKER_00",
+      "confidence": 1.0
+    }
+  ]
+}
