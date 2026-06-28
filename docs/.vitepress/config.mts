@@ -13,7 +13,7 @@ export default withMermaid(
 
     // The docs/ tree also holds internal build plans/specs + the demo script —
     // keep those out of the published site.
-    srcExclude: ['superpowers/**', 'demo_script.md', 'README.md'],
+    srcExclude: ['superpowers/**', 'demo_script.md', 'demo_video_script.md', 'README.md'],
 
     themeConfig: {
       siteTitle: 'Atyx Convo-KG',
