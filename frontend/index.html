@@ -148,8 +148,16 @@ button { font:inherit; }
           </div>
         </div>
 
-        <!-- graph — graph mode only -->
-        <sc-if value="{{ isGraphMode }}">
+        <!-- graph placeholder while the pipeline runs; the graph itself appears at 'done' (with the chat) -->
+        <sc-if value="{{ graphBuilding }}">
+        <div style="flex:1; background:#141318; border:1px solid #232228; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; min-height:0;">
+          <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:23px; font-style:italic; color:#3a3942;">Building the knowledge graph…</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.08em; color:#5b5750;">extraction → Neo4j upsert</div>
+        </div>
+        </sc-if>
+
+        <!-- graph — graph mode, after the run completes -->
+        <sc-if value="{{ showGraph }}">
         <div style="flex:1; background:#141318; border:1px solid #232228; border-radius:12px; display:flex; flex-direction:column; min-height:0; position:relative;">
           <div style="display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border-bottom:1px solid #232228;">
             <span style="display:flex; align-items:baseline; gap:9px;"><span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#8A8579;">Knowledge Graph</span><span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.04em; color:#5b5750;">click a node to explore</span></span>
@@ -679,8 +687,11 @@ class Component extends DCLogic {
 
       isGraphMode, isFactsMode,
       oneSpeakerNote,
-      // Ask-Atyx appears only after the pipeline run completes (graph clips).
+      // The knowledge graph and Ask-Atyx both appear only after the run completes
+      // (matching the "Graph build" stage); a placeholder shows while it runs.
       showChat: isGraphMode && st.run==='done',
+      showGraph: isGraphMode && st.run==='done',
+      graphBuilding: isGraphMode && st.run==='running',
       gridCols: (isGraphMode && st.run==='done') ? '264px 1fr 372px' : '264px 1fr',
 
       clipRows,
