@@ -1,4 +1,6 @@
 import io
+import os
+os.environ["ATYX_REPLAY_INSTANT"] = "1"   # disable replay stage pacing in tests
 import pytest
 from fastapi.testclient import TestClient
 import src.api as api

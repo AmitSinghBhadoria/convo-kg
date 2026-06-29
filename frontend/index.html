@@ -403,8 +403,9 @@ class Component extends DCLogic {
         this.finishRun();
       });
     }).catch(() => this.finishRun());
-    // Watchdog: 90 s for graph-mode replay; live uploads get 30 min (rely on done/error events).
-    const watchdogMs = this.clipMode !== 'graph' ? 30 * 60 * 1000 : 90000;
+    // Watchdog: graph-mode replay is now stage-paced (~2–3 min), so allow 6 min
+    // before the safety-net fires; live uploads get 30 min (rely on done/error events).
+    const watchdogMs = this.clipMode !== 'graph' ? 30 * 60 * 1000 : 6 * 60 * 1000;
     this.runWatchdog = setTimeout(() => { if (this.state.run === 'running') this.finishRun(); }, watchdogMs);
   };
 

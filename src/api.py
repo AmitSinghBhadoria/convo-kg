@@ -4,7 +4,9 @@ frontend/. The pre-built graph stays authoritative; clip-specificity is config o
 """
 import json
 import os
+import random
 import re
+import time
 import uuid
 from pathlib import Path
 
@@ -147,6 +149,29 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+# Per-stage replay pacing: (min, max) seconds, weighted by each stage's real
+# pipeline cost so a replay feels like genuine processing rather than an instant
+# snapshot load. ASR + extraction are the heavy stages; denoise + graph-build are
+# quick. All within a 10–60 s band. Set ATYX_REPLAY_INSTANT=1 to disable the
+# pauses (tests, or a fast walkthrough).
+_REPLAY_STAGE_DELAYS: dict[int, tuple[int, int]] = {
+    0: (10, 18),   # Speech enhancement (DeepFilterNet)
+    1: (22, 38),   # Diarization (pyannote)
+    2: (38, 58),   # Transcribe · ASR (Whisper large-v3) — slowest
+    3: (28, 48),   # Fact extraction (Qwen 9B)
+    4: (10, 18),   # Graph build (Neo4j)
+}
+
+
+def _replay_pause(stage_index: int) -> None:
+    """Sleep a randomized, stage-weighted duration to pace a replay.
+    No-op when ATYX_REPLAY_INSTANT is set (tests / fast walkthrough)."""
+    if os.environ.get("ATYX_REPLAY_INSTANT"):
+        return
+    lo, hi = _REPLAY_STAGE_DELAYS.get(stage_index, (10, 20))
+    time.sleep(random.uniform(lo, hi))
+
+
 @app.get("/api/run/{run_id}/stream")
 def api_run_stream(run_id: str, replay: int = 0):
     clip = _RUNS.get(run_id, CFG.demo.clip)
@@ -170,22 +195,33 @@ def api_run_stream(run_id: str, replay: int = 0):
 
         return StreamingResponse(live_gen(), media_type="text/event-stream")
 
-    # ── Replay path (graph/facts clips) — UNCHANGED ───────────────────────────
+    # ── Replay path (graph/facts clips) ───────────────────────────────────────
+    # Stages are PACED (each emits 'active' → randomized pause → 'done') so a
+    # replay feels like real processing rather than an instant snapshot load.
+    # See _replay_pause / _REPLAY_STAGE_DELAYS; ATYX_REPLAY_INSTANT skips pauses.
     def gen():
         try:
             tr = Transcript.model_validate_json((work / f"{clip}.transcript.json").read_text())
-            stages = [("Speech enhancement", "DeepFilterNet"), ("Diarization", "pyannote 3.x"),
-                      ("Transcribe · Hinglish→EN", "Whisper large-v3")]
-            for i, (label, sub) in enumerate(stages):
-                yield _sse("stage", {"index": i, "label": label, "sub": sub,
+            audio_stages = [
+                (0, "Speech enhancement", "DeepFilterNet"),
+                (1, "Diarization", "pyannote 3.x"),
+                (2, "Transcribe · Hinglish→EN", "Whisper large-v3"),
+            ]
+            for idx, label, sub in audio_stages:
+                yield _sse("stage", {"index": idx, "label": label, "sub": sub,
+                                     "status": "active", "replayed": True})
+                _replay_pause(idx)
+                yield _sse("stage", {"index": idx, "label": label, "sub": sub,
                                      "status": "done", "replayed": True})
             for u in tr.utterances:
                 yield _sse("transcript_line", {"speaker": u.speaker, "t": round(u.start, 1),
                                                "text": u.text})
-            # Extract stage: live display-only proof (or pure replay if ?replay=1).
-            yield _sse("stage", {"index": 3, "label": "Fact extraction", "sub": "Qwen 9B · live",
+            # Stage 3 — fact extraction: cached facts when ?replay=1 (paced), else
+            # a genuine live extraction (already takes real time, so not paced).
+            yield _sse("stage", {"index": 3, "label": "Fact extraction", "sub": "Qwen 9B · 4-bit",
                                  "status": "active", "replayed": False})
             if replay:
+                _replay_pause(3)
                 facts = json.loads((work / f"{clip}.facts.json").read_text()).get("facts", [])
                 for f in facts:
                     yield _sse("fact", {"text": f.get("statement", "")})
@@ -194,6 +230,12 @@ def api_run_stream(run_id: str, replay: int = 0):
                 fs = extract(clip)                       # live; display-only, NOT upserted
                 for f in fs.facts:
                     yield _sse("fact", {"text": f.statement})
+            yield _sse("stage", {"index": 3, "label": "Fact extraction", "sub": "Qwen 9B · 4-bit",
+                                 "status": "done", "replayed": False})
+            # Stage 4 — graph build.
+            yield _sse("stage", {"index": 4, "label": "Graph build", "sub": "Neo4j · authoritative",
+                                 "status": "active", "replayed": False})
+            _replay_pause(4)
             yield _sse("stage", {"index": 4, "label": "Graph build", "sub": "Neo4j · authoritative",
                                  "status": "done", "replayed": False})
             yield _sse("done", {"clip": clip})
