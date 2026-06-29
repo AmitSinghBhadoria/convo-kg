@@ -111,16 +111,6 @@ button { font:inherit; }
         </div>
       </div>
 
-      <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ false }}">
-        <div>
-          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#8a7330; letter-spacing:0.05em; margin-bottom:6px;">automatic extraction — unverified · this clip has no graph or Q&amp;A</div>
-          <div style="max-height:100px; overflow-y:auto; display:flex; flex-direction:column;">
-            <sc-for list="{{ liveFacts }}" as="f" hint-placeholder-count="0">
-              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#5b5750; line-height:1.4; padding:3px 0; border-bottom:1px solid #1e1d24;">{{ f }}</div>
-            </sc-for>
-          </div>
-        </div>
-      </sc-if>
     </div>
 
     <!-- MAIN CANVAS -->
@@ -129,8 +119,8 @@ button { font:inherit; }
       <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ true }}">
         <label style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; cursor:pointer;">
           <div style="width:54px; height:54px; border:1px solid #2b2a31; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#3a3942; font-size:20px; margin-bottom:6px;">↑</div>
-          <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:34px; font-weight:500; color:#ECE8E1; letter-spacing:0.01em;">Upload a conversation to begin.</div>
-          <div style="font-size:13px; color:#5b5750;">click to select an audio file · or use <span style="color:#C8A24E;">Run replay</span> to load the selected clip</div>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif; font-size:34px; font-weight:500; color:#ECE8E1; letter-spacing:0.01em;">Press <span style="color:#C8A24E;">Run replay</span> to load this conversation.</div>
+          <div style="font-size:13px; color:#5b5750;">or click here to upload your own audio file (≤ 10 min)</div>
           <input type="file" accept="audio/*" onChange="{{ onUpload }}" style="display:none;" />
         </label>
       </sc-if>
@@ -208,8 +198,8 @@ button { font:inherit; }
       </sc-if>
     </div>
 
-    <!-- RIGHT PANEL — CHAT (graph mode only) -->
-    <sc-if value="{{ isGraphMode }}">
+    <!-- RIGHT PANEL — CHAT (graph mode, after a completed run) -->
+    <sc-if value="{{ showChat }}">
     <div style="border-left:1px solid #232228; display:flex; flex-direction:column; min-height:0;">
       <div style="flex:0 0 auto; padding:17px 20px 14px; border-bottom:1px solid #1c1b21; display:flex; align-items:center; justify-content:space-between;">
         <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:#C8A24E;">Ask Atyx</span>
@@ -398,7 +388,10 @@ class Component extends DCLogic {
     this.setState({ run:'running', step:0, tlines:0, ans:null, messages:this.state.messages, elapsed:0, liveFacts:[], streamLines:[] });
     this.elTimer = setInterval(() => this.setState({ elapsed:(Date.now()-this.startTs)/1000 }), 100);
     fetch('/api/run', { method:'POST' }).then(r => r.json()).then(({ run_id }) => {
-      this.es = new EventSource(`/api/run/${run_id}/stream`);
+      // replay=1 → the verified graph/facts clips stream their COMMITTED facts
+      // (no live re-extraction): fast, deterministic, and consistent with the
+      // authoritative snapshot graph. Live/upload clips ignore this and run for real.
+      this.es = new EventSource(`/api/run/${run_id}/stream?replay=1`);
       this.es.addEventListener('stage', e => { const d=JSON.parse(e.data); this.setState({ step:d.index + (d.status==='done'?1:0) }); });
       this.es.addEventListener('transcript_line', e => { const d=JSON.parse(e.data); this.setState(st => ({ tlines: st.tlines + 1, streamLines: [...st.streamLines, d] })); });
       this.es.addEventListener('fact', e => { const d=JSON.parse(e.data); this.setState(st => ({ liveFacts:[...(st.liveFacts||[]), d.text] })); });
@@ -685,7 +678,9 @@ class Component extends DCLogic {
 
       isGraphMode, isFactsMode,
       oneSpeakerNote,
-      gridCols: isGraphMode ? '264px 1fr 372px' : '264px 1fr',
+      // Ask-Atyx appears only after the pipeline run completes (graph clips).
+      showChat: isGraphMode && st.run==='done',
+      gridCols: (isGraphMode && st.run==='done') ? '264px 1fr 372px' : '264px 1fr',
 
       clipRows,
       togglePicker: this.togglePicker,
