@@ -35,12 +35,27 @@ def test_uploads_path_present():
     assert load_config().paths.uploads  # non-empty path string
 
 import json, pathlib
-def test_example_clips_have_committed_artifacts():
+def test_graph_clips_have_committed_snapshots():
+    # Every graph-mode clip must ship a committed, non-empty snapshot — that is
+    # what restore_snapshot() loads when the clip is selected (single Neo4j DB).
+    cfg = load_config()
+    gt = pathlib.Path(cfg.paths.ground_truth)
+    graph_clips = [c for c in cfg.demo.clips if c.mode == "graph"]
+    assert graph_clips, "expected at least one graph clip in the registry"
+    for c in graph_clips:
+        snap = gt / f"{c.id}_graph_snapshot.json"
+        assert snap.exists(), f"missing snapshot for graph clip {c.id}: {snap}"
+        data = json.loads(snap.read_text())
+        assert data.get("nodes"), f"empty snapshot for graph clip {c.id}"
+
+def test_facts_clips_have_committed_artifacts():
+    # Every facts-mode clip ships committed transcript + facts artifacts (the
+    # replay clips serve these without re-running the audio pipeline).
     cfg = load_config()
     work = pathlib.Path(cfg.paths.work)
-    for cid in ("call_100", "call_103"):
-        c = next(c for c in cfg.demo.clips if c.id == cid)
-        assert c.mode == "facts"
-        assert (work / f"{cid}.transcript.json").exists()
-        facts = json.loads((work / f"{cid}.facts.json").read_text())
-        assert len(facts.get("facts", [])) >= 1   # non-empty extraction
+    facts_clips = [c for c in cfg.demo.clips if c.mode == "facts"]
+    assert facts_clips, "expected at least one facts clip in the registry"
+    for c in facts_clips:
+        assert (work / f"{c.id}.transcript.json").exists(), f"missing transcript for {c.id}"
+        facts = json.loads((work / f"{c.id}.facts.json").read_text())
+        assert len(facts.get("facts", [])) >= 1, f"empty extraction for {c.id}"

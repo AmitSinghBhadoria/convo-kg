@@ -280,6 +280,22 @@ def restore_graph(driver, database, snap: dict, wipe: bool = True) -> None:
                 s=r["start"], e=r["end"], props=r["props"]))
 
 
+def restore_snapshot(driver, database, clip_id: str) -> None:
+    """Wipe the DB and restore the committed snapshot for ``clip_id``.
+
+    Reads ``data/ground_truth/<clip_id>_graph_snapshot.json``. Neo4j Community
+    serves a single database, so graph-mode clips share one graph; this is how
+    the API swaps the live graph when a different graph clip is selected.
+    Raises FileNotFoundError if the clip has no committed snapshot.
+    """
+    from src.config import load_config
+
+    snap_path = Path(load_config().paths.ground_truth) / f"{clip_id}_graph_snapshot.json"
+    if not snap_path.exists():
+        raise FileNotFoundError(f"no snapshot for clip '{clip_id}': {snap_path}")
+    restore_graph(driver, database, json.loads(snap_path.read_text()), wipe=True)
+
+
 # ---------------------------------------------------------------------------
 # Concept graph reader (for the UI)
 # ---------------------------------------------------------------------------

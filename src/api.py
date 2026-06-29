@@ -31,6 +31,9 @@ FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 _ACTIVE_CLIP: str = CFG.demo.clip          # currently selected clip id
 _CLIP_MODE: dict[str, str] = {}            # uploaded clip_id → mode (e.g. "live")
 _LIVE_RUNNING: bool = False                # guard: only one live run at a time
+_LOADED_GRAPH_CLIP: str = CFG.demo.clip    # which graph clip's snapshot is live in Neo4j;
+                                           # start.sh restores the default clip's graph at boot,
+                                           # so re-selecting the hero is a no-op (no demo-time wipe).
 
 
 # clip ids reach the filesystem (data/raw/<id>.wav, data/work/<id>.*), so they
@@ -104,32 +107,27 @@ def api_clips() -> dict:
 
 @app.post("/api/select_clip")
 def api_select_clip(body: SelectClipBody) -> dict:
-    global _ACTIVE_CLIP
+    global _ACTIVE_CLIP, _LOADED_GRAPH_CLIP
     clip_id = body.id
     mode = _clip_mode(clip_id)   # raises 404 if completely unknown
     # For uploaded clips: record mode so subsequent _clip_mode calls are fast.
     if clip_id.startswith("upload_"):
         _CLIP_MODE[clip_id] = "live"
     # HERO INVARIANT: facts/live selection must never touch Neo4j.
-    # Only for graph clips do we (optionally) ensure the snapshot is loaded.
-    if mode == "graph":
-        # Best-effort: load snapshot only when the DB is empty.
-        # If restore_snapshot is not implemented yet, skip silently.
+    # Graph clips share ONE Neo4j database (Community is single-DB), so selecting
+    # a graph clip swaps the live graph to that clip's committed snapshot. This is
+    # a no-op when the requested clip's graph is already loaded.
+    if mode == "graph" and _LOADED_GRAPH_CLIP != clip_id:
         try:
+            from src.graph import restore_snapshot
             drv = connect()
             try:
-                with drv.session(database=DB) as sess:
-                    count = sess.run("MATCH (n) RETURN count(n) AS n").single()["n"]
-                if count == 0:
-                    try:
-                        from src.graph import restore_snapshot
-                        restore_snapshot(drv, DB, clip_id)
-                    except (ImportError, AttributeError):
-                        pass   # restore_snapshot not yet implemented — skip
+                restore_snapshot(drv, DB, clip_id)
+                _LOADED_GRAPH_CLIP = clip_id
             finally:
                 drv.close()
         except Exception:
-            pass   # best-effort; demo still works if graph is already loaded
+            pass   # best-effort; if the snapshot is missing, leave the DB as-is
     _ACTIVE_CLIP = clip_id
     return {"active": clip_id, "mode": mode}
 
